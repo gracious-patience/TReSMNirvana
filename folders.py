@@ -675,7 +675,7 @@ class PipalFolder(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('pipal')[1][:-1]}")
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('train')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -723,7 +723,7 @@ class SlyPipalFolder(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('pipal')[1][:-1]}")
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('train')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
