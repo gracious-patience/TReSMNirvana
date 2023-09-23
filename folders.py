@@ -110,6 +110,7 @@ class LIVEChallengeFolder(data.Dataset):
 
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         """
@@ -129,7 +130,7 @@ class LIVEChallengeFolder(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('LIVE-itW')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -159,6 +160,7 @@ class CSIQFolder(data.Dataset):
                     sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k], row['dmos'] ))
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         """
@@ -180,7 +182,8 @@ class CSIQFolder(data.Dataset):
         for neighbour_path in neighbours:
             # [1:-1] slices because I saved pathes like this: "'path'"
             # so, broadcasting it to str returns 'path'
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('csiq')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -209,6 +212,7 @@ class SlyCSIQFolder(data.Dataset):
                     sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k], row['dmos'] ))
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         """
@@ -230,7 +234,7 @@ class SlyCSIQFolder(data.Dataset):
         for neighbour_path in neighbours:
             # [1:-1] slices because I saved pathes like this: "'path'"
             # so, broadcasting it to str returns 'path'
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('csiq')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -256,6 +260,7 @@ class Koniq_10kFolder(data.Dataset):
 
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         """
@@ -275,7 +280,7 @@ class Koniq_10kFolder(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('koniq10k')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -339,6 +344,7 @@ class SpaqFolder(data.Dataset):
 
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         """
@@ -358,7 +364,7 @@ class SpaqFolder(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('spaq')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -384,6 +390,7 @@ class BiqFolder(data.Dataset):
 
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         """
@@ -403,7 +410,7 @@ class BiqFolder(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('BIQ2021')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -471,6 +478,7 @@ class TID2013Folder(data.Dataset):
                     sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['mos']  ))
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         path, neighbours, neighbours_target, target = self.samples[index]
@@ -483,7 +491,7 @@ class TID2013Folder(data.Dataset):
         targets += [target]
         # pics neighbours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('tid2013')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -510,6 +518,7 @@ class SlyTID2013Folder(data.Dataset):
                     sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['mos']  ))
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         path, neighbours, neighbours_target, target = self.samples[index]
@@ -522,7 +531,7 @@ class SlyTID2013Folder(data.Dataset):
         targets += [target]
         # pics neighbours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('tid2013')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -549,6 +558,7 @@ class Kadid10k(data.Dataset):
                     sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k] , row['dmos'] ))
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         """
@@ -569,7 +579,7 @@ class Kadid10k(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('kadid10k')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -596,6 +606,7 @@ class SlyKadid10k(data.Dataset):
                     sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k] , row['dmos'] ))
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         """
@@ -616,7 +627,7 @@ class SlyKadid10k(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('kadid10k')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -644,6 +655,7 @@ class PipalFolder(data.Dataset):
 
         self.samples = sample
         self.transform = transform
+        self.root = root
 
     def __getitem__(self, index):
         """
@@ -663,7 +675,7 @@ class PipalFolder(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('pipal')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
@@ -691,6 +703,7 @@ class SlyPipalFolder(data.Dataset):
 
         self.samples = sample
         self.transform = transform
+        self.root
 
     def __getitem__(self, index):
         """
@@ -710,7 +723,7 @@ class SlyPipalFolder(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
-            sample_neighbour = pil_loader(neighbour_path[1:-1])
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('pipal')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
