@@ -1,6 +1,6 @@
 import pandas as pd
 import torch.utils.data as data
-from torch import concat
+from torch import cat
 from torch import tensor
 import torchvision.transforms as T
 from PIL import Image
@@ -133,7 +133,7 @@ class LIVEChallengeFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -184,7 +184,7 @@ class CSIQFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -234,7 +234,7 @@ class SlyCSIQFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -279,7 +279,7 @@ class Koniq_10kFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -362,7 +362,7 @@ class SpaqFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -407,7 +407,7 @@ class BiqFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -487,7 +487,7 @@ class TID2013Folder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -526,7 +526,7 @@ class SlyTID2013Folder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -573,7 +573,7 @@ class Kadid10k(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -620,7 +620,7 @@ class SlyKadid10k(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -667,7 +667,7 @@ class PipalFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
@@ -714,7 +714,7 @@ class SlyPipalFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return concat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets)
 
     def __len__(self):
         length = len(self.samples)
