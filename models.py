@@ -539,11 +539,13 @@ class TReS(object):
 			dataPath = svPath + '/val_prediction_gt_{}_{}_{}.csv'.format(str(self.config.vesion),str(seed),epochnum)
 			with open(dataPath, 'w') as f:
 				writer = csv.writer(f)
+				writer.writerow(g for g in ['preds','gts'])
 				writer.writerows(zip(pred_scores, gt_scores))
 		else:
 			dataPath = svPath + '/test_prediction_gt_{}_{}_{}.csv'.format(str(self.config.vesion),str(seed),epochnum)
 			with open(dataPath, 'w') as f:
 				writer = csv.writer(f)
+				writer.writerow(g for g in ['preds','gts'])
 				writer.writerows(zip(pred_scores, gt_scores))
 			
 			
