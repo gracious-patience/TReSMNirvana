@@ -292,7 +292,7 @@ class TReS(object):
 		performPath = svPath +'/' + 'val_SRCC_PLCC_'+str(self.config.vesion)+'_'+str(seed)+'.json'
 		trainPerformPath = svPath +'/' + 'train_LOSS_SRCC_'+str(self.config.vesion)+'_'+str(seed)+'.json'
 
-		if not self.resume:
+		if not self.config.resume:
 			with open(performPath, 'w') as json_file2:
 				json.dump(  {} , json_file2)
 			with open(trainPerformPath, 'w') as json_file3:
