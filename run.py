@@ -140,10 +140,13 @@ if __name__ == '__main__':
     print(config)
 
     if torch.cuda.is_available():
-            if len(config.gpunum)==1:
-                device = torch.device("cuda", index=int(config.gpunum))
-            else:
-                device = torch.device("cpu")
+        if len(config.gpunum)==1:
+            device = torch.device("cuda", index=int(config.gpunum))
+        else:
+            device = torch.device("cpu")
+
+    if config.stateSnapshot != "":
+        config.resume = 1    
         
     main(config,device)
     

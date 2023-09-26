@@ -50,6 +50,8 @@ def Configs():
                         help='return k+1 labels or 1')
     parser.add_argument('--resume', dest='resume', type=int, default=0,
                         help='resume current checkpoint')
+    parser.add_argument('--stateSnapshot', dest='stateSnapshot', type=str, 
+                        help='path to checkpoint if resumed')
     parser.add_argument('--finetune', dest='finetune', type=int,
                         help='finetune head and legs or retrain full model')
     parser.add_argument('--ckpt', dest='ckpt', type=str, 
