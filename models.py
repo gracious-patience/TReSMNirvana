@@ -245,11 +245,18 @@ class TReS(object):
 		self.clsloss =  nn.CrossEntropyLoss()
 		self.paras = [{'params': self.net.parameters(), 'lr': self.lr} ]
 		self.solver = torch.optim.Adam(self.paras, weight_decay=self.weight_decay)
+		
+		if config.scheduler == "log":
+			self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
+		if config.scheduler == "cosine":
+			self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=5, eta_min=self.lr/1000)
+
 
 		if config.resume:
 			checkpoint = torch.load(self.stateSnapshot + '/model_{}_{}'.format(str(config.vesion),str(config.seed)), map_location=device)
 			self.net.load_state_dict(checkpoint['model_state_dict'])
 			self.solver.load_state_dict(checkpoint['optimizer_state_dict'])
+			self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 			self.loss = checkpoint['loss']
 			self.start_epoch = checkpoint['epoch']
 		else:
@@ -496,21 +503,15 @@ class TReS(object):
 			print('{}\t{:4.3f}\t\t{:4.4f}\t\t{:4.4f}\t\t{:4.3f}\t\t{}\t\t{:4.3f}'.format(epochnum + 1, sum(epoch_loss) / len(epoch_loss), train_srcc, test_srcc, test_plcc,self.paras[0]['lr'],self.droplr ))
 
 
+			# scheduler step
+			self.scheduler.step()
 
-
-			if (epochnum+1)==self.droplr or (epochnum+1)==(2*self.droplr) or (epochnum+1)==(3*self.droplr):
-
-				self.lr = self.lr /self.lrratio
-				
-				self.paras = [{'params': self.net.parameters(), 'lr': self.lr} ]
-				
-				self.solver = torch.optim.Adam(self.paras, weight_decay=self.weight_decay)
-
-			fullModelPath = self.stateSnapshot + '/model_{}_{}'.format(str(self.config.vesion),str(self.config.seed))
+			fullModelPath = self.stateSnapshot + '/model_{}_{}'.format(str(self.config.vesion),str(self.config.seed),epochnum)
 			torch.save({
 				'epoch': epochnum,
 				'model_state_dict': self.net.state_dict(),
 				'optimizer_state_dict': self.solver.state_dict(),
+				'scheduler_state_dict': self.scheduler.state_dict(),
 				'loss': loss,
             }, fullModelPath)
 

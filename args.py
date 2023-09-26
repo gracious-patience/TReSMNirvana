@@ -20,7 +20,7 @@ def Configs():
                         help='Number of sample patches from testing image')
     parser.add_argument('--lr', dest='lr', type=float, default=2e-5, 
                         help='Learning rate')
-    parser.add_argument('--lrratio', dest='lrratio', type=int, default=1, 
+    parser.add_argument('--lrratio', dest='lrratio', type=float, default=1, 
                         help='Constant to decrease lr')
     parser.add_argument('--weight_decay', dest='weight_decay', type=float, default=5e-4, 
                         help='Weight decay')
@@ -67,6 +67,8 @@ def Configs():
                         help='dim feedforward in the transformer')
     parser.add_argument('--resnet_path', dest='resnet_path', type=str, 
                         help='path to resnet50 default weights')
+    parser.add_argument('--scheduler', dest='scheduler', type=str, 
+                        help='log=multiply by const step every droplr epoch; cosine annealing')
     return parser.parse_args()
     
     
