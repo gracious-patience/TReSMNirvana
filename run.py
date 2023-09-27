@@ -145,8 +145,5 @@ if __name__ == '__main__':
         else:
             device = torch.device("cpu")
 
-    if config.stateSnapshot != "":
-        config.resume = 1    
-        
     main(config,device)
     

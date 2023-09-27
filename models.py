@@ -243,9 +243,15 @@ class TReS(object):
 		self.droplr = config.droplr
 		self.config = config
 		self.clsloss =  nn.CrossEntropyLoss()
+
 		self.paras = [{'params': self.net.parameters(), 'lr': self.lr} ]
-		self.solver = torch.optim.Adam(self.paras, weight_decay=self.weight_decay)
-		
+		if config.optimizer == "adam":
+			self.solver = torch.optim.Adam(self.paras, weight_decay=self.weight_decay)
+		elif config.optimizer == "radam":
+			self.solver = torch.optim.RAdam(self.paras, weight_decay=self.weight_decay)
+		elif config.optimizer == "sgd":
+			self.solver = torch.optim.SGD(self.paras, weight_decay=self.weight_decay)
+
 		if config.scheduler == "log":
 			self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
 		if config.scheduler == "cosine":
@@ -506,7 +512,7 @@ class TReS(object):
 			# scheduler step
 			self.scheduler.step()
 
-			fullModelPath = self.config.stateSnapshot + '/model_{}_{}'.format(str(self.config.vesion),str(self.config.seed),epochnum)
+			fullModelPath = self.config.stateSnapshot + '/model_{}_{}'.format(str(self.config.vesion),str(self.config.seed))
 			torch.save({
 				'epoch': epochnum,
 				'model_state_dict': self.net.state_dict(),

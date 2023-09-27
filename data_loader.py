@@ -149,5 +149,5 @@ class DataLoader(object):
 				self.data, batch_size=self.batch_size, shuffle=True, num_workers=32)
 		else:
 			dataloader = torch.utils.data.DataLoader(
-				self.data, batch_size=self.batch_size, shuffle=False, num_workers=32)
+				self.data, batch_size=1, shuffle=False, num_workers=32)
 		return dataloader
