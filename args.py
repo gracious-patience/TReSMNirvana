@@ -71,6 +71,8 @@ def Configs():
                         help='log=multiply by const step every droplr epoch; cosine annealing')
     parser.add_argument('--optimizer', dest='optimizer', type=str, 
                         help='sgd, adam, radam')
+    parser.add_argument('--T_max', dest='T_max', type=int, default=5, 
+                        help='if scheduler is cosine, number of epochs till minimum lr')
     return parser.parse_args()
     
     

@@ -255,7 +255,7 @@ class TReS(object):
 		if config.scheduler == "log":
 			self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
 		if config.scheduler == "cosine":
-			self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=5, eta_min=self.lr/1000)
+			self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=self.lr/1000)
 
 
 		if config.resume:
