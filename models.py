@@ -48,7 +48,7 @@ class Net(nn.Module):
 		self.L2pooling_l4 = L2pooling(channels=2048)
 		
 		if cfg.single_channel and not cfg.finetune:
-			self.initial_fuser = nn.Conv2d(3*(cfg.k+1), 3, kernel_size=(1, 1), bias=False)
+			self.initial_fuser = nn.Conv2d(3*(cfg.k+1), 3, kernel_size=(1, 1), bias=cfg.conv_bias)
 
 			
 		if cfg.network =='resnet50':
@@ -236,10 +236,6 @@ class TReS(object):
 						parameter.requires_grad = True
 				self.net.to(device)
 
-		
-		
-				
-
 		self.droplr = config.droplr
 		self.config = config
 		self.clsloss =  nn.CrossEntropyLoss()
@@ -250,7 +246,7 @@ class TReS(object):
 		elif config.optimizer == "radam":
 			self.solver = torch.optim.RAdam(self.paras, weight_decay=self.weight_decay)
 		elif config.optimizer == "sgd":
-			self.solver = torch.optim.SGD(self.paras, weight_decay=self.weight_decay)
+			self.solver = torch.optim.SGD(self.paras, weight_decay=self.weight_decay, momentum=config.momentum, nesterov=config.nesterov)
 
 		if config.scheduler == "log":
 			self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
@@ -267,9 +263,6 @@ class TReS(object):
 			self.start_epoch = checkpoint['epoch']
 		else:
 			self.start_epoch = 0
-
-
-
 
 		train_loader = data_loader.DataLoader(config.dataset, datapath, 
 											  train_idx, config.patch_size, 

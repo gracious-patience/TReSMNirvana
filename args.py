@@ -71,6 +71,12 @@ def Configs():
                         help='log=multiply by const step every droplr epoch; cosine annealing')
     parser.add_argument('--optimizer', dest='optimizer', type=str, 
                         help='sgd, adam, radam')
+    parser.add_argument('--nesterov', dest='nesterov', type=int, default=0,
+                        help='Enable or disable Nesterov momentum in sgd')
+    parser.add_argument('--conv_bias', dest='conv_bias', type=int, default=0,
+                        help='Enable or disable bias term in 1x1 convolution')
+    parser.add_argument('--momentum', dest='momentum', type=float, default=0.0,
+                        help='Momentum value for sgd')
     parser.add_argument('--T_max', dest='T_max', type=int, default=5, 
                         help='if scheduler is cosine, number of epochs till minimum lr')
     return parser.parse_args()
