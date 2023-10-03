@@ -3,6 +3,7 @@ import torchvision.models as models
 import torchvision
 import torch.nn.functional as F
 from torch import nn, Tensor
+from guided_diffusion import unet
 
 import numpy as np
 from scipy import stats
@@ -48,7 +49,22 @@ class Net(nn.Module):
 		self.L2pooling_l4 = L2pooling(channels=2048)
 		
 		if cfg.single_channel and not cfg.finetune:
-			self.initial_fuser = nn.Conv2d(3*(cfg.k+1), 3, kernel_size=(1, 1), bias=cfg.conv_bias)
+			if cfg.unet:
+				self.initial_fuser = unet.IQAUNetModel(
+					image_size=(224, 224),
+					in_channels= 3*(cfg.k+1),
+					model_channels=32,
+					out_channels=3,
+					k = cfg.k,
+					num_res_blocks=2,
+					attention_resolutions= (14,),
+					num_heads=4,
+					resblock_updown=True,
+					channel_mult=(1,1,2,4,8)
+				)
+			else:
+				self.initial_fuser = nn.Conv2d(3*(cfg.k+1), 3, kernel_size=(1, 1), bias=cfg.conv_bias)
+
 
 			
 		if cfg.network =='resnet50':
@@ -145,12 +161,15 @@ class Net(nn.Module):
 		
 		
 
-	def forward(self, x):
+	def forward(self, x, t=0):
 		self.pos_enc_1 = self.position_embedding(torch.ones(1, self.dim_modelt, 7, 7).to(self.device))
 		self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
 
 		if self.cfg.single_channel:
-			x = self.initial_fuser(x)
+			if self.cfg.unet:
+				x = self.initial_fuser(x,t)
+			else:
+				x = self.initial_fuser(x)
 
 		out,layer1,layer2,layer3,layer4 = self.model(x) 
 
@@ -313,8 +332,12 @@ class TReS(object):
 				
 				self.net.zero_grad()
 
-				pred,closs = self.net(img)
-				pred2,closs2 = self.net(torch.flip(img, [3]))  
+				if self.config.unet:
+					pred,closs = self.net(img, label[::, 1:])
+					pred2,closs2 = self.net(torch.flip(img, [3]),label[::, 1:])
+				else:
+					pred,closs = self.net(img)
+					pred2,closs2 = self.net(torch.flip(img, [3]))   
 
 
 				if self.config.multi_return:
@@ -535,7 +558,10 @@ class TReS(object):
 			for img, label in pbartest:
 				img = torch.as_tensor(img.to(self.device))
 				label = torch.as_tensor(label.to(self.device))
-				pred,_ = self.net(img)
+				if self.config.unet:
+					pred,_ = self.net(img, label[::, 1:])
+				else:
+					pred,_ = self.net(img)
 
 				if self.config.multi_return:
 					pred_scores = pred_scores + pred[:,0].flatten().cpu().tolist()
