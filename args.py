@@ -61,7 +61,7 @@ def Configs():
                         help='relative ranking loss for all outputs')
     parser.add_argument('--full_finetune', dest='full_finetune', type=int, default=0,
                         help='if finetune, do we want to change all the internal weights')
-        parser.add_argument('--single_channel', dest='single_channel', type=int,
+    parser.add_argument('--single_channel', dest='single_channel', type=int,
                         help='if want to fuse before net, but not with unet')
     parser.add_argument('--unet', dest='unet', type=int,
                         help='if want to fuse before net, but not with 1x1-conv')
