@@ -532,7 +532,7 @@ class TReS(object):
 
 			fullModelPath = self.config.stateSnapshot + '/model_{}_{}'.format(str(self.config.vesion),str(self.config.seed))
 			torch.save({
-				'epoch': epochnum,
+				'epoch': 0,
 				'model_state_dict': self.net.state_dict(),
 				'optimizer_state_dict': self.solver.state_dict(),
 				'scheduler_state_dict': self.scheduler.state_dict(),
