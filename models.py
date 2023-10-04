@@ -4,6 +4,7 @@ import torchvision
 import torch.nn.functional as F
 from torch import nn, Tensor
 from guided_diffusion import unet
+import nirvana_dl
 
 import numpy as np
 from scipy import stats
@@ -247,7 +248,7 @@ class TReS(object):
 		else:
 			if config.finetune:
 				self.net.load_state_dict(torch.load(config.ckpt, map_location=device))
-				self.net.initial_fuser = nn.Conv2d(3*(config.k+1), 3, 1, bias=False)
+				self.net.initial_fuser = nn.Conv2d(3*(config.k+1), 3, 1, bias=config.conv_bias)
 				if not config.full_finetune:
 					for parameter in self.net.parameters():
 						parameter.requires_grad = False
@@ -536,7 +537,18 @@ class TReS(object):
 				'scheduler_state_dict': self.scheduler.state_dict(),
 				'loss': loss,
             }, fullModelPath)
+			nirvana_dl.snapshot.dump_snapshot()
 
+
+		fullModelPath = self.config.stateSnapshot + '/model_{}_{}'.format(str(self.config.vesion),str(self.config.seed))
+		torch.save({
+			'epoch': epochnum,
+			'model_state_dict': self.net.state_dict(),
+			'optimizer_state_dict': self.solver.state_dict(),
+			'scheduler_state_dict': self.scheduler.state_dict(),
+			'loss': loss,
+		}, fullModelPath)
+		nirvana_dl.snapshot.dump_snapshot()
 		print('Best val SRCC %f, PLCC %f' % (best_srcc, best_plcc))
 
 		return best_srcc, best_plcc
