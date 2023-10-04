@@ -77,6 +77,10 @@ def Configs():
                         help='Enable or disable Nesterov momentum in sgd')
     parser.add_argument('--conv_bias', dest='conv_bias', type=int, default=0,
                         help='Enable or disable bias term in 1x1 convolution')
+    parser.add_argument('--middle_attention', dest='middle_attention', type=int, default=0,
+                        help='Enable or disable attention in the middle block of unet')
+    parser.add_argument('--attention_resolution', dest='attention_resolution', type=int, default=20,
+                        help='at which downsampling add attention')
     parser.add_argument('--momentum', dest='momentum', type=float, default=0.0,
                         help='Momentum value for sgd')
     parser.add_argument('--T_max', dest='T_max', type=int, default=5, 

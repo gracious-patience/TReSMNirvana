@@ -57,11 +57,12 @@ class Net(nn.Module):
 					model_channels=32,
 					out_channels=3,
 					k = cfg.k,
-					num_res_blocks=2,
-					attention_resolutions= (14,),
+					num_res_blocks=1,
+					attention_resolutions= (cfg.attention_resolution,),
 					num_heads=4,
-					resblock_updown=True,
-					channel_mult=(1,1,2,4,8)
+					resblock_updown=False,
+					channel_mult=(1,2,4),
+					middle_attention=cfg.middle_attention
 				)
 			else:
 				self.initial_fuser = nn.Conv2d(3*(cfg.k+1), 3, kernel_size=(1, 1), bias=cfg.conv_bias)

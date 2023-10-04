@@ -674,6 +674,7 @@ class IQAUNetModel(nn.Module):
         attention will take place. May be a set, list, or tuple.
         For example, if this contains 4, then at 4x downsampling, attention
         will be used.
+    :param middle_attention: whether or not to use attention in bottleneck
     :param k: number of neighbours
     :param dropout: the dropout probability.
     :param channel_mult: channel multiplier for each level of the UNet.
@@ -702,6 +703,7 @@ class IQAUNetModel(nn.Module):
         out_channels,
         num_res_blocks,
         attention_resolutions,
+        middle_attention,
         k,
         dropout=0,
         channel_mult=(1, 2, 4, 8),
@@ -738,6 +740,7 @@ class IQAUNetModel(nn.Module):
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
         self.k = k
+        self.middle_attention = middle_attention
 
         time_embed_dim = model_channels * 4
         self.time_embed = nn.Sequential(
@@ -808,31 +811,51 @@ class IQAUNetModel(nn.Module):
                 ds *= 2
                 self._feature_size += ch
 
-        self.middle_block = TimestepEmbedSequential(
-            ResBlock(
-                ch,
-                time_embed_dim,
-                dropout,
-                dims=dims,
-                use_checkpoint=use_checkpoint,
-                use_scale_shift_norm=use_scale_shift_norm,
-            ),
-            AttentionBlock(
-                ch,
-                use_checkpoint=use_checkpoint,
-                num_heads=num_heads,
-                num_head_channels=num_head_channels,
-                use_new_attention_order=use_new_attention_order,
-            ),
-            ResBlock(
-                ch,
-                time_embed_dim,
-                dropout,
-                dims=dims,
-                use_checkpoint=use_checkpoint,
-                use_scale_shift_norm=use_scale_shift_norm,
-            ),
-        )
+        if middle_attention:
+            self.middle_block = TimestepEmbedSequential(
+                ResBlock(
+                    ch,
+                    time_embed_dim,
+                    dropout,
+                    dims=dims,
+                    use_checkpoint=use_checkpoint,
+                    use_scale_shift_norm=use_scale_shift_norm,
+                ),
+                AttentionBlock(
+                    ch,
+                    use_checkpoint=use_checkpoint,
+                    num_heads=num_heads,
+                    num_head_channels=num_head_channels,
+                    use_new_attention_order=use_new_attention_order,
+                ),
+                ResBlock(
+                    ch,
+                    time_embed_dim,
+                    dropout,
+                    dims=dims,
+                    use_checkpoint=use_checkpoint,
+                    use_scale_shift_norm=use_scale_shift_norm,
+                ),
+            )
+        else:
+            self.middle_block = TimestepEmbedSequential(
+                ResBlock(
+                    ch,
+                    time_embed_dim,
+                    dropout,
+                    dims=dims,
+                    use_checkpoint=use_checkpoint,
+                    use_scale_shift_norm=use_scale_shift_norm,
+                ),
+                ResBlock(
+                    ch,
+                    time_embed_dim,
+                    dropout,
+                    dims=dims,
+                    use_checkpoint=use_checkpoint,
+                    use_scale_shift_norm=use_scale_shift_norm,
+                ),
+            )
         self._feature_size += ch
 
         self.output_blocks = nn.ModuleList([])
