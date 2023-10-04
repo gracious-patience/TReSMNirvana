@@ -547,7 +547,7 @@ class TReS(object):
 			'model_state_dict': self.net.state_dict(),
 			'optimizer_state_dict': self.solver.state_dict(),
 			'scheduler_state_dict': self.scheduler.state_dict(),
-			'loss': loss,
+			'loss': 0,
 		}, fullModelPath)
 		nirvana_dl.snapshot.dump_snapshot()
 		print('Best val SRCC %f, PLCC %f' % (best_srcc, best_plcc))
