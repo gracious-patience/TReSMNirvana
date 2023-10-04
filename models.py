@@ -541,15 +541,7 @@ class TReS(object):
 			nirvana_dl.snapshot.dump_snapshot()
 
 
-		fullModelPath = self.config.stateSnapshot + '/model_{}_{}'.format(str(self.config.vesion),str(self.config.seed))
-		torch.save({
-			'epoch': 0,
-			'model_state_dict': self.net.state_dict(),
-			'optimizer_state_dict': self.solver.state_dict(),
-			'scheduler_state_dict': self.scheduler.state_dict(),
-			'loss': 0,
-		}, fullModelPath)
-		nirvana_dl.snapshot.dump_snapshot()
+		
 		print('Best val SRCC %f, PLCC %f' % (best_srcc, best_plcc))
 
 		return best_srcc, best_plcc
