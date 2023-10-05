@@ -81,6 +81,8 @@ def Configs():
                         help='at which downsampling add attention')
     parser.add_argument('--scaling_factors', dest='scaling_factors', nargs="+", type=int,
                         help='scaling factors')
+    parser.add_argument('--middle_attention', dest='middle_attention', type=int, default=0,
+                        help='Enable or disable attention in the middle block of unet')
     parser.add_argument('--first_conv_resample', dest='first_conv_resample', type=int, default=0,
                         help='Enable or disable conv in the initial downsample')
     parser.add_argument('--momentum', dest='momentum', type=float, default=0.0,
