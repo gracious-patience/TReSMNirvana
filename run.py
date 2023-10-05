@@ -7,6 +7,7 @@ import torch
 from args import Configs
 import logging
 from sklearn.model_selection import train_test_split
+import nirvana_dl
 
 
 
@@ -144,6 +145,9 @@ if __name__ == '__main__':
             device = torch.device("cuda", index=int(config.gpunum))
         else:
             device = torch.device("cpu")
+
+    if nirvana_dl.snapshot.has_snapshot():
+        config.resume = 1
 
     main(config,device)
     
