@@ -86,14 +86,16 @@ class Upsample(nn.Module):
     :param use_conv: a bool determining if a convolution is applied.
     :param dims: determines if the signal is 1D, 2D, or 3D. If 3D, then
                  upsampling occurs in the inner-two dimensions.
+    :param factor: times spatial part of tensor is upsampled.
     """
 
-    def __init__(self, channels, use_conv, dims=2, out_channels=None):
+    def __init__(self, channels, use_conv, factor=2, dims=2, out_channels=None):
         super().__init__()
         self.channels = channels
         self.out_channels = out_channels or channels
         self.use_conv = use_conv
         self.dims = dims
+        self.factor = factor
         if use_conv:
             self.conv = conv_nd(dims, self.channels, self.out_channels, 3, padding=1)
 
@@ -101,10 +103,10 @@ class Upsample(nn.Module):
         assert x.shape[1] == self.channels
         if self.dims == 3:
             x = F.interpolate(
-                x, (x.shape[2], x.shape[3] * 2, x.shape[4] * 2), mode="nearest"
+                x, (x.shape[2], x.shape[3] * self.factor, x.shape[4] * self.factor), mode="nearest"
             )
         else:
-            x = F.interpolate(x, scale_factor=2, mode="nearest")
+            x = F.interpolate(x, scale_factor=self.factor, mode="nearest")
         if self.use_conv:
             x = self.conv(x)
         return x
@@ -118,15 +120,17 @@ class Downsample(nn.Module):
     :param use_conv: a bool determining if a convolution is applied.
     :param dims: determines if the signal is 1D, 2D, or 3D. If 3D, then
                  downsampling occurs in the inner-two dimensions.
+    :param factor: times spatial part of tensor is downsampled.
     """
 
-    def __init__(self, channels, use_conv, dims=2, out_channels=None):
+    def __init__(self, channels, use_conv, factor=2, dims=2, out_channels=None):
         super().__init__()
         self.channels = channels
         self.out_channels = out_channels or channels
         self.use_conv = use_conv
         self.dims = dims
-        stride = 2 if dims != 3 else (1, 2, 2)
+        self.factor = factor
+        stride = factor if dims != 3 else (1, factor, factor)
         if use_conv:
             self.op = conv_nd(
                 dims, self.channels, self.out_channels, 3, stride=stride, padding=1
@@ -674,10 +678,13 @@ class IQAUNetModel(nn.Module):
         attention will take place. May be a set, list, or tuple.
         For example, if this contains 4, then at 4x downsampling, attention
         will be used.
-    :param middle_attention: whether or not to use attention in bottleneck
+    :param middle_attention: whether or not to use attention in the bottleneck
     :param k: number of neighbours
     :param dropout: the dropout probability.
     :param channel_mult: channel multiplier for each level of the UNet.
+    :param scaling_factors: spatial part multiplier for each level of the UNet (including initial conv).
+    :param first_conv_resample: if True, use learned convolutions for initial
+        downsampling.
     :param conv_resample: if True, use learned convolutions for upsampling and
         downsampling.
     :param dims: determines if the signal is 1D, 2D, or 3D.
@@ -707,6 +714,8 @@ class IQAUNetModel(nn.Module):
         k,
         dropout=0,
         channel_mult=(1, 2, 4, 8),
+        scaling_factors=(1, 2, 2, 2),
+        first_conv_resample=False,
         conv_resample=True,
         dims=2,
         num_classes=None,
@@ -732,6 +741,7 @@ class IQAUNetModel(nn.Module):
         self.attention_resolutions = attention_resolutions
         self.dropout = dropout
         self.channel_mult = channel_mult
+        self.first_conv_resample = first_conv_resample
         self.conv_resample = conv_resample
         self.num_classes = num_classes
         self.use_checkpoint = use_checkpoint
@@ -754,11 +764,15 @@ class IQAUNetModel(nn.Module):
 
         ch = input_ch = int(channel_mult[0] * model_channels)
         self.input_blocks = nn.ModuleList(
-            [TimestepEmbedSequential(conv_nd(dims, in_channels, ch, 3, padding=1))]
+            [TimestepEmbedSequential(
+                *[conv_nd(dims, in_channels, ch, 3, padding=1),
+                  Downsample(ch, first_conv_resample, dims=dims, out_channels=ch, factor=scaling_factors[0])
+                 ]
+                )]
         )
         self._feature_size = ch
         input_block_chans = [ch]
-        ds = 1
+        ds = scaling_factors[0]
         for level, mult in enumerate(channel_mult):
             for _ in range(num_res_blocks):
                 layers = [
@@ -773,6 +787,7 @@ class IQAUNetModel(nn.Module):
                     )
                 ]
                 ch = int(mult * model_channels)
+                print(ds)
                 if ds in attention_resolutions:
                     layers.append(
                         AttentionBlock(
@@ -802,13 +817,13 @@ class IQAUNetModel(nn.Module):
                         )
                         if resblock_updown
                         else Downsample(
-                            ch, conv_resample, dims=dims, out_channels=out_ch
+                            ch, conv_resample, dims=dims, out_channels=out_ch, factor=scaling_factors[1:][level]
                         )
                     )
                 )
                 ch = out_ch
                 input_block_chans.append(ch)
-                ds *= 2
+                ds *= scaling_factors[1:][level]
                 self._feature_size += ch
 
         if middle_attention:
@@ -874,6 +889,7 @@ class IQAUNetModel(nn.Module):
                     )
                 ]
                 ch = int(model_channels * mult)
+                print(ds)
                 if ds in attention_resolutions:
                     layers.append(
                         AttentionBlock(
@@ -898,13 +914,14 @@ class IQAUNetModel(nn.Module):
                             up=True,
                         )
                         if resblock_updown
-                        else Upsample(ch, conv_resample, dims=dims, out_channels=out_ch)
+                        else Upsample(ch, conv_resample, dims=dims, out_channels=out_ch, factor=scaling_factors[level])
                     )
-                    ds //= 2
+                    ds //= scaling_factors[1:][level]
                 self.output_blocks.append(TimestepEmbedSequential(*layers))
                 self._feature_size += ch
 
         self.out = nn.Sequential(
+            Upsample(ch, conv_resample, dims=dims, out_channels=ch, factor=scaling_factors[0]),
             normalization(ch),
             nn.SiLU(),
             zero_module(conv_nd(dims, input_ch, out_channels, 3, padding=1)),
@@ -950,10 +967,13 @@ class IQAUNetModel(nn.Module):
         for module in self.input_blocks:
             h = module(h, emb)
             hs.append(h)
+            # print("Down", h.shape)
         h = self.middle_block(h, emb)
+        # print("Middle", h.shape)
         for module in self.output_blocks:
             h = th.cat([h, hs.pop()], dim=1)
             h = module(h, emb)
+            # print("Up", h.shape)
         h = h.type(x.dtype)
         return self.out(h)
 
