@@ -58,9 +58,12 @@ class Net(nn.Module):
 					out_channels=3,
 					k = cfg.k,
 					num_res_blocks=1,
-					attention_resolutions= (cfg.attention_resolution,),
-					num_heads=4,
+					attention_resolutions= cfg.attention_resolutions,
+					scaling_factors=cfg.scaling_factors,
+					num_heads=1,
 					resblock_updown=False,
+					conv_resample=True,
+    				first_conv_resample=cfg.first_conv_resample,
 					channel_mult=(1,2,4),
 					middle_attention=cfg.middle_attention
 				)
