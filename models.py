@@ -279,7 +279,7 @@ class  TReS(object):
 
 
 		if config.resume:
-			checkpoint = torch.load(config.stateSnapshot + '/model_{}_{}'.format(str(config.vesion),str(config.seed)), map_location=device)
+			checkpoint = torch.load(config.stateSnapshot + '/state', map_location=device)
 			self.net.load_state_dict(checkpoint['model_state_dict'])
 			self.solver.load_state_dict(checkpoint['optimizer_state_dict'])
 			self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
@@ -534,7 +534,7 @@ class  TReS(object):
 			# scheduler step
 			self.scheduler.step()
 
-			fullModelPath = self.config.stateSnapshot + '/model_{}_{}'.format(str(self.config.vesion),str(self.config.seed))
+			fullModelPath = self.config.stateSnapshot + '/state'
 			torch.save({
 				'epoch': epochnum,
 				'model_state_dict': self.net.state_dict(),
