@@ -85,6 +85,8 @@ def Configs():
                         help='Enable or disable attention in the middle block of unet')
     parser.add_argument('--first_conv_resample', dest='first_conv_resample', type=int, default=0,
                         help='Enable or disable conv in the initial downsample')
+    parser.add_argument('--num_heads', dest='num_heads', type=int, default=1,
+                        help='Number of heads in attention.')
     parser.add_argument('--momentum', dest='momentum', type=float, default=0.0,
                         help='Momentum value for sgd')
     parser.add_argument('--T_max', dest='T_max', type=int, default=5, 

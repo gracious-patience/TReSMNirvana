@@ -60,7 +60,7 @@ class Net(nn.Module):
 					num_res_blocks=1,
 					attention_resolutions= cfg.attention_resolutions,
 					scaling_factors=cfg.scaling_factors,
-					num_heads=1,
+					num_heads=cfg.num_heads,
 					resblock_updown=False,
 					conv_resample=True,
     				first_conv_resample=cfg.first_conv_resample,
