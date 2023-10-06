@@ -216,7 +216,7 @@ class Net(nn.Module):
 		return predictionQA, consistloss
 
 
-class TReS(object):
+class  TReS(object):
 	
 	def __init__(self, config, device,  svPath, datapath, train_idx, test_idx,Net):
 		super(TReS, self).__init__()
@@ -329,7 +329,7 @@ class TReS(object):
 			gt_scores = []
 			pbar = tqdm(self.train_data, leave=False)
 
-			for img, label in pbar:
+			for g, img, label in enumerate(pbar):
 				img = torch.as_tensor(img.to(self.device)).requires_grad_(False)
 				label = torch.as_tensor(label.to(self.device)).requires_grad_(False)
 
@@ -482,10 +482,11 @@ class TReS(object):
 
 				consistency = nn.L1Loss()
 
-				
+				if g == 0:
+					print("GPU usage")
+					os.system("nvidia-smi")
 				
 				loss = loss_qa + closs + loss_qa2 + closs2 + 0.5*( self.l1_loss(tripletlosses,ftripletlosses.detach())+ self.l1_loss(ftripletlosses,tripletlosses.detach()))+0.05*(tripletlosses+ftripletlosses)
-
 				
 				epoch_loss.append(loss.item())
 				loss.backward()
