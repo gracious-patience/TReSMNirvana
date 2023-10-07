@@ -148,8 +148,6 @@ if __name__ == '__main__':
 
     if nirvana_dl.snapshot.has_snapshot():
         config.resume = 1
-    config.stateSnapshot = nirvana_dl.snapshot.get_snapshot_path()
-    print(config.stateSnapshot)
 
     main(config,device)
     
