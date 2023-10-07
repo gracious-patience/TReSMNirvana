@@ -329,7 +329,7 @@ class  TReS(object):
 			gt_scores = []
 			pbar = tqdm(self.train_data, leave=False)
 
-			for g, img, label in enumerate(pbar):
+			for g, (img, label) in enumerate(pbar):
 				img = torch.as_tensor(img.to(self.device)).requires_grad_(False)
 				label = torch.as_tensor(label.to(self.device)).requires_grad_(False)
 
