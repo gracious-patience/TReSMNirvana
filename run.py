@@ -69,8 +69,6 @@ def main(config,device):
             svPath += '/full_finetune'
     else:
         svPath =  config.dataset + '_' + str(config.vesion)+'_'+str(config.seed)+ '/k_'+str(config.k)+  f'/lr_{config.lr}_lrratio{config.lrratio}' +'/'+'no_finetune'
-    if config.resume:
-        svPath += '/resume'
     if config.multi_return:
         svPath += '/multi_return'
         if config.multi_ranking:
