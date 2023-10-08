@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch import nn, Tensor
 from guided_diffusion import unet
 import nirvana_dl
+from distutils.dir_util import copy_tree
 
 import numpy as np
 from scipy import stats
@@ -482,7 +483,7 @@ class  TReS(object):
 
 				consistency = nn.L1Loss()
 
-				if g == 0:
+				if g == 0 and epochnum == 0:
 					print("GPU usage")
 					os.system("nvidia-smi")
 				
@@ -493,9 +494,6 @@ class  TReS(object):
 				self.solver.step()
 				
 
-			
-			
-	
 			# torch.save(self.net.state_dict(), modelPath)
 
 			train_srcc, _ = stats.spearmanr(pred_scores, gt_scores)
@@ -542,6 +540,7 @@ class  TReS(object):
 				'scheduler_state_dict': self.scheduler.state_dict(),
 				'loss': loss,
             }, fullModelPath)
+			copy_tree(self.config.svpath, self.config.stateSnapshot)
 			nirvana_dl.snapshot.dump_snapshot()
 
 
