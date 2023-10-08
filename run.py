@@ -8,6 +8,7 @@ from args import Configs
 import logging
 from sklearn.model_selection import train_test_split
 import nirvana_dl
+from distutils.dir_util import copy_tree
 
 
 
@@ -63,11 +64,11 @@ def main(config,device):
     
     SavePath = config.svpath
     if config.finetune:
-        svPath = SavePath+ config.dataset + '_' + str(config.vesion)+'_'+str(config.seed)+'/k_'+str(config.k)+ f'/lr_{config.lr}_lrratio{config.lrratio}' + '/'+'finetune'
+        svPath =  config.dataset + '_' + str(config.vesion)+'_'+str(config.seed)+'/k_'+str(config.k)+ f'/lr_{config.lr}_lrratio{config.lrratio}' + '/'+'finetune'
         if config.full_finetune:
             svPath += '/full_finetune'
     else:
-        svPath = SavePath+ config.dataset + '_' + str(config.vesion)+'_'+str(config.seed)+ '/k_'+str(config.k)+  f'/lr_{config.lr}_lrratio{config.lrratio}' +'/'+'no_finetune'
+        svPath =  config.dataset + '_' + str(config.vesion)+'_'+str(config.seed)+ '/k_'+str(config.k)+  f'/lr_{config.lr}_lrratio{config.lrratio}' +'/'+'no_finetune'
     if config.resume:
         svPath += '/resume'
     if config.multi_return:
@@ -78,7 +79,16 @@ def main(config,device):
             svPath += '/single_ranking'
     else:
         svPath += '/single_return'
-    os.makedirs(svPath, exist_ok=True)
+    os.makedirs(SavePath + svPath, exist_ok=True)
+
+    # for Nirvana resume
+    # copy all logs that were saved to $SNAPSHOT_PATH
+    # to working dir to continue training
+    if config.resume:
+        from_directory = config.stateSnapshot + '/' + svPath
+        to_directory = SavePath + svPath
+        copy_tree(from_directory, to_directory)
+
         
     
     
@@ -100,9 +110,9 @@ def main(config,device):
     val_index, test_index = train_test_split(test_index, test_size=0.5, random_state=config.seed)
     
     
-    imgsTrainPath = svPath + '/' + 'train_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
-    imgsValPath = svPath + '/' + 'val_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
-    imgsTestPath = svPath + '/' + 'test_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
+    imgsTrainPath = SavePath + svPath + '/' + 'train_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
+    imgsValPath = SavePath + svPath + '/' + 'val_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
+    imgsTestPath = SavePath + svPath + '/' + 'test_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
 
     with open(imgsTrainPath, 'w') as json_file2:
         json.dump( train_index, json_file2)
@@ -111,8 +121,8 @@ def main(config,device):
     with open(imgsTestPath, 'w') as json_file2:
         json.dump( test_index, json_file2)
 
-    solver = TReS(config,device, svPath, folder_path[config.dataset], train_index, val_index,Net)
-    srcc_computed, plcc_computed = solver.train(config.seed,svPath)
+    solver = TReS(config, device, SavePath + svPath, folder_path[config.dataset], train_index, val_index,Net)
+    srcc_computed, plcc_computed = solver.train(config.seed, SavePath + svPath)
     
     
     
@@ -120,7 +130,7 @@ def main(config,device):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     
-    handler = logging.FileHandler(svPath + '/LogPerformance.log')
+    handler = logging.FileHandler(SavePath + svPath + '/LogPerformance.log')
 
     formatter    = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
     handler.setFormatter(formatter)
@@ -150,4 +160,3 @@ if __name__ == '__main__':
         config.resume = 1
 
     main(config,device)
-    
