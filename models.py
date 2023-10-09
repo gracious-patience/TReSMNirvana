@@ -288,8 +288,12 @@ class  TReS(object):
 			self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 			self.loss = checkpoint['loss']
 			self.start_epoch = checkpoint['epoch']
+			self.best_srcc = checkpoint['best_srcc']
+			self.best_plcc = checkpoint['best_plcc']
 		else:
 			self.start_epoch = 0
+			self.best_plcc = 0.0
+			self.best_srcc = 0.0
 			self.paras = [{'params': self.net.parameters(), 'lr': self.lr} ]
 			if config.optimizer == "adam":
 				self.solver = torch.optim.Adam(self.paras, weight_decay=self.weight_decay)
@@ -321,8 +325,8 @@ class  TReS(object):
 		
 		
 	def train(self,seed,svPath):
-		best_srcc = 0.0
-		best_plcc = 0.0
+		best_srcc = self.best_srcc
+		best_plcc = self.best_srcc
 		print('Epoch\tTrain_Loss\tTrain_SRCC\tTest_SRCC\tTest_PLCC\tLearning_Rate\tdroplr')
 		steps = 0
 		results = {}
@@ -553,7 +557,9 @@ class  TReS(object):
 				'optimizer_state_dict': self.solver.state_dict(),
 				'scheduler_state_dict': self.scheduler.state_dict(),
 				'loss': loss,
-				'lr': self.paras[0]['lr']
+				'lr': self.paras[0]['lr'],
+				'best_srcc': best_srcc,
+				'best_plcc': best_plcc
             }, fullModelPath)
 			copy_tree(self.config.svpath, self.config.stateSnapshot)
 			nirvana_dl.snapshot.dump_snapshot()
