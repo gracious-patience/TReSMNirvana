@@ -282,10 +282,13 @@ class  TReS(object):
 			if config.scheduler == "log":
 				self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
 			if config.scheduler == "cosine":
-				self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=config.eta_min)
+				self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=checkpoint['eta_min'])
 
 			self.solver.load_state_dict(checkpoint['optimizer_state_dict'])
 			self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+			if config.scheduler == "cosine":
+				self.scheduler.base_lrs[0] = checkpoint['base_lrs']
+				self.scheduler.eta_min = checkpoint['eta_min']
 			self.loss = checkpoint['loss']
 			self.start_epoch = checkpoint['epoch']
 			self.best_srcc = checkpoint['best_srcc']
@@ -558,17 +561,33 @@ class  TReS(object):
 					self.scheduler.base_lrs[0] = self.scheduler.base_lrs[0] * self.config.dump_cosine
 
 			fullModelPath = self.config.stateSnapshot + '/state'
-			torch.save({
-				'epoch': epochnum+1,
-				'model_state_dict': self.net.state_dict(),
-				'optimizer_state_dict': self.solver.state_dict(),
-				'scheduler_state_dict': self.scheduler.state_dict(),
-				'loss': loss,
-				'lr': self.scheduler.get_last_lr(),
-				'best_srcc': best_srcc,
-				'best_plcc': best_plcc
-            }, fullModelPath)
+			if self.config.scheduler == "cosine":
+				torch.save({
+					'epoch': epochnum+1,
+					'model_state_dict': self.net.state_dict(),
+					'optimizer_state_dict': self.solver.state_dict(),
+					'scheduler_state_dict': self.scheduler.state_dict(),
+					'loss': loss,
+					'lr': self.scheduler.get_last_lr(),
+					'base_lrs':	self.scheduler.base_lrs[0],
+					'eta_min': self.scheduler.eta_min,
+					'best_srcc': best_srcc,
+					'best_plcc': best_plcc
+				}, fullModelPath)
+			else:
+				torch.save({
+					'epoch': epochnum+1,
+					'model_state_dict': self.net.state_dict(),
+					'optimizer_state_dict': self.solver.state_dict(),
+					'scheduler_state_dict': self.scheduler.state_dict(),
+					'loss': loss,
+					'lr': self.scheduler.get_last_lr(),
+					'best_srcc': best_srcc,
+					'best_plcc': best_plcc
+				}, fullModelPath)
+			# copy logs to state dir to save them	
 			copy_tree(self.config.svpath, self.config.stateSnapshot)
+			# save everything in state path to Nirvana for restart
 			nirvana_dl.snapshot.dump_snapshot()
 
 
