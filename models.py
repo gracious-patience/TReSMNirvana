@@ -55,7 +55,7 @@ class Net(nn.Module):
 				self.initial_fuser = unet.IQAUNetModel(
 					image_size=(224, 224),
 					in_channels= 3*(cfg.k+1),
-					model_channels=32,
+					model_channels=cfg.model_channels,
 					out_channels=3,
 					k = cfg.k,
 					num_res_blocks=1,
@@ -65,7 +65,7 @@ class Net(nn.Module):
 					resblock_updown=False,
 					conv_resample=True,
     				first_conv_resample=cfg.first_conv_resample,
-					channel_mult=(1,2,4),
+					channel_mult=cfg.channel_mult,
 					middle_attention=cfg.middle_attention
 				)
 			else:
@@ -282,7 +282,7 @@ class  TReS(object):
 			if config.scheduler == "log":
 				self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
 			if config.scheduler == "cosine":
-				self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=self.lr/1000)
+				self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=config.eta_min)
 
 			self.solver.load_state_dict(checkpoint['optimizer_state_dict'])
 			self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
@@ -305,7 +305,7 @@ class  TReS(object):
 			if config.scheduler == "log":
 				self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
 			if config.scheduler == "cosine":
-				self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=self.lr/1000)
+				self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=config.eta_min)
 
 		train_loader = data_loader.DataLoader(config.dataset, datapath, 
 											  train_idx, config.patch_size, 
@@ -326,7 +326,7 @@ class  TReS(object):
 		
 	def train(self,seed,svPath):
 		best_srcc = self.best_srcc
-		best_plcc = self.best_srcc
+		best_plcc = self.best_plcc
 		print('Epoch\tTrain_Loss\tTrain_SRCC\tTest_SRCC\tTest_PLCC\tLearning_Rate\tdroplr')
 		steps = 0
 		results = {}
@@ -550,6 +550,13 @@ class  TReS(object):
 			# scheduler step
 			self.scheduler.step()
 
+			# cosine scheduler dump
+			if self.config.scheduler == "cosine" and self.config.dump_cosine > 0:
+				if (epochnum+1) % self.config.T_max == 0:
+					self.scheduler.eta_min = self.scheduler.eta_min * self.config.dump_cosine
+				if (epochnum+1+self.config.T_max) % self.config.T_max == 0:
+					self.scheduler.base_lrs[0] = self.scheduler.base_lrs[0] * self.config.dump_cosine
+
 			fullModelPath = self.config.stateSnapshot + '/state'
 			torch.save({
 				'epoch': epochnum+1,
@@ -557,7 +564,7 @@ class  TReS(object):
 				'optimizer_state_dict': self.solver.state_dict(),
 				'scheduler_state_dict': self.scheduler.state_dict(),
 				'loss': loss,
-				'lr': self.paras[0]['lr'],
+				'lr': self.scheduler.get_last_lr(),
 				'best_srcc': best_srcc,
 				'best_plcc': best_plcc
             }, fullModelPath)

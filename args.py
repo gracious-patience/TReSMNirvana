@@ -81,6 +81,12 @@ def Configs():
                         help='at which downsampling add attention')
     parser.add_argument('--scaling_factors', dest='scaling_factors', nargs="+", type=int,
                         help='scaling factors')
+    parser.add_argument('--channel_mult', dest='channel_mult', nargs="+", type=int,
+                        help='channel multipliers schedule')
+    parser.add_argument('--model_channels', dest='model_channels', type=int,
+                        help='initial number of channel after first conv')
+    parser.add_argument('--dump_cosine', dest='dump_cosine', type=float, default=-1,
+                        help='if > 0, then make upper and lower bounds of cosine lr be multiplied by dump_cosine')
     parser.add_argument('--middle_attention', dest='middle_attention', type=int, default=1,
                         help='Enable or disable attention in the middle block of unet')
     parser.add_argument('--first_conv_resample', dest='first_conv_resample', type=int, default=0,
@@ -90,6 +96,8 @@ def Configs():
     parser.add_argument('--momentum', dest='momentum', type=float, default=0.0,
                         help='Momentum value for sgd')
     parser.add_argument('--T_max', dest='T_max', type=int, default=5, 
+                        help='if scheduler is cosine, number of epochs till minimum lr')
+    parser.add_argument('--eta_min', dest='eta_min', type=float, 
                         help='if scheduler is cosine, number of epochs till minimum lr')
     return parser.parse_args()
     
