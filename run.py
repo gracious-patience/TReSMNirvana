@@ -86,9 +86,10 @@ def main(config,device):
         from_directory = config.stateSnapshot + '/' + svPath
         to_directory = SavePath + svPath
         copy_tree(from_directory, to_directory)
-        nirvana_dl.snapshot.dump_snapshot()
 
-           
+        
+    
+    
      # fix the seed if needed for reproducibility
     if config.seed == 0:
         pass
@@ -120,6 +121,7 @@ def main(config,device):
 
     solver = TReS(config, device, SavePath + svPath, folder_path[config.dataset], train_index, val_index,Net)
     srcc_computed, plcc_computed = solver.train(config.seed, SavePath + svPath)
+    
     
        
     # logging the performance
@@ -156,4 +158,3 @@ if __name__ == '__main__':
         config.resume = 1
 
     main(config,device)
-    
