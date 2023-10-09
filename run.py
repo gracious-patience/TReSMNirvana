@@ -86,6 +86,7 @@ def main(config,device):
         from_directory = config.stateSnapshot + '/' + svPath
         to_directory = SavePath + svPath
         copy_tree(from_directory, to_directory)
+        nirvana_dl.snapshot.dump_snapshot()
 
         
     
