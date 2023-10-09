@@ -81,7 +81,7 @@ def Configs():
                         help='at which downsampling add attention')
     parser.add_argument('--scaling_factors', dest='scaling_factors', nargs="+", type=int,
                         help='scaling factors')
-    parser.add_argument('--channel_mult', dest='channel_mult', nargs="+", type=int,
+    parser.add_argument('--channel_mult', dest='channel_mult', nargs="+", type=float,
                         help='channel multipliers schedule')
     parser.add_argument('--model_channels', dest='model_channels', type=int,
                         help='initial number of channel after first conv')
