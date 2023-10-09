@@ -265,29 +265,43 @@ class  TReS(object):
 		self.config = config
 		self.clsloss =  nn.CrossEntropyLoss()
 
-		self.paras = [{'params': self.net.parameters(), 'lr': self.lr} ]
-		if config.optimizer == "adam":
-			self.solver = torch.optim.Adam(self.paras, weight_decay=self.weight_decay)
-		elif config.optimizer == "radam":
-			self.solver = torch.optim.RAdam(self.paras, weight_decay=self.weight_decay)
-		elif config.optimizer == "sgd":
-			self.solver = torch.optim.SGD(self.paras, weight_decay=self.weight_decay, momentum=config.momentum, nesterov=config.nesterov)
-
-		if config.scheduler == "log":
-			self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
-		if config.scheduler == "cosine":
-			self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=self.lr/1000)
-
-
+		
 		if config.resume:
 			checkpoint = torch.load(config.stateSnapshot + '/state', map_location=device)
 			self.net.load_state_dict(checkpoint['model_state_dict'])
+			self.lr = checkpoint['lr']
+
+			self.paras = [{'params': self.net.parameters(), 'lr': self.lr} ]
+			if config.optimizer == "adam":
+				self.solver = torch.optim.Adam(self.paras, weight_decay=self.weight_decay)
+			elif config.optimizer == "radam":
+				self.solver = torch.optim.RAdam(self.paras, weight_decay=self.weight_decay)
+			elif config.optimizer == "sgd":
+				self.solver = torch.optim.SGD(self.paras, weight_decay=self.weight_decay, momentum=config.momentum, nesterov=config.nesterov)
+
+			if config.scheduler == "log":
+				self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
+			if config.scheduler == "cosine":
+				self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=self.lr/1000)
+
 			self.solver.load_state_dict(checkpoint['optimizer_state_dict'])
 			self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 			self.loss = checkpoint['loss']
 			self.start_epoch = checkpoint['epoch']
 		else:
 			self.start_epoch = 0
+			self.paras = [{'params': self.net.parameters(), 'lr': self.lr} ]
+			if config.optimizer == "adam":
+				self.solver = torch.optim.Adam(self.paras, weight_decay=self.weight_decay)
+			elif config.optimizer == "radam":
+				self.solver = torch.optim.RAdam(self.paras, weight_decay=self.weight_decay)
+			elif config.optimizer == "sgd":
+				self.solver = torch.optim.SGD(self.paras, weight_decay=self.weight_decay, momentum=config.momentum, nesterov=config.nesterov)
+
+			if config.scheduler == "log":
+				self.scheduler = torch.optim.lr_scheduler.StepLR(self.solver, step_size=self.droplr, gamma=self.lrratio)
+			if config.scheduler == "cosine":
+				self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=self.lr/1000)
 
 		train_loader = data_loader.DataLoader(config.dataset, datapath, 
 											  train_idx, config.patch_size, 
@@ -539,6 +553,7 @@ class  TReS(object):
 				'optimizer_state_dict': self.solver.state_dict(),
 				'scheduler_state_dict': self.scheduler.state_dict(),
 				'loss': loss,
+				'lr': self.paras[0]['lr']
             }, fullModelPath)
 			copy_tree(self.config.svpath, self.config.stateSnapshot)
 			nirvana_dl.snapshot.dump_snapshot()
