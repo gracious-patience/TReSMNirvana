@@ -295,6 +295,8 @@ class  TReS(object):
 			self.best_srcc = checkpoint['best_srcc']
 			self.best_plcc = checkpoint['best_plcc']
 
+			
+			copy_tree(config.svpath, config.stateSnapshot)
 			# dump after loading state
 			nirvana_dl.snapshot.dump_snapshot()
 
