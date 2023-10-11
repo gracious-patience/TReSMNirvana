@@ -547,7 +547,7 @@ class  TReS(object):
 				best_srcc = test_srcc
 				best_plcc = test_plcc
 
-			print('{}\t{:4.3f}\t\t{:4.4f}\t\t{:4.4f}\t\t{:4.3f}\t\t{}\t\t{:4.3f}'.format(epochnum + 1, sum(epoch_loss) / len(epoch_loss), train_srcc, test_srcc, test_plcc, self.optimizer.param_groups[0]['lr'], self.droplr ))
+			print('{}\t{:4.3f}\t\t{:4.4f}\t\t{:4.4f}\t\t{:4.3f}\t\t{}\t\t{:4.3f}'.format(epochnum + 1, sum(epoch_loss) / len(epoch_loss), train_srcc, test_srcc, test_plcc, self.solver.param_groups[0]['lr'], self.droplr ))
 
 
 			# scheduler step
