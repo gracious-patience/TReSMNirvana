@@ -289,6 +289,9 @@ class  TReS(object):
 			if config.scheduler == "cosine":
 				self.scheduler.base_lrs[0] = checkpoint['base_lrs']
 				self.scheduler.eta_min = checkpoint['eta_min']
+
+			# fix updating lr bug
+
 			self.loss = checkpoint['loss']
 			self.start_epoch = checkpoint['epoch']
 			self.best_srcc = checkpoint['best_srcc']
@@ -521,24 +524,16 @@ class  TReS(object):
 			train_loss = sum(epoch_loss) / len(epoch_loss)
 
 			train_results[epochnum] = (train_loss, train_srcc)
-			with open(trainPerformPath, "r+") as file:
-				data = json.load(file)
-				data.update(train_results)
-				file.seek(0)
-				json.dump(data, file)
+			with open(trainPerformPath, "a+") as file:
+				file.write(f"{epochnum+1}: {train_loss}, {train_srcc}")
 
 			test_srcc, test_plcc = self.test(self.test_data,epochnum,svPath,seed)
 
 
 			results[epochnum]=(test_srcc, test_plcc)
-			with open(performPath, "r+") as file:
-				data = json.load(file)
-				data.update(results)
-				file.seek(0)
-				json.dump(data, file)
-			
+			with open(performPath, "a+") as file:
+				file.write(f"{epochnum+1}: {test_srcc}, {test_plcc}")
 
-		
 			if test_srcc > best_srcc:
 				modelPathbest = svPath + '/bestmodel_{}_{}'.format(str(self.config.vesion),str(seed))
 				
@@ -547,7 +542,7 @@ class  TReS(object):
 				best_srcc = test_srcc
 				best_plcc = test_plcc
 
-			print('{}\t{:4.3f}\t\t{:4.4f}\t\t{:4.4f}\t\t{:4.3f}\t\t{}\t\t{:4.3f}'.format(epochnum + 1, sum(epoch_loss) / len(epoch_loss), train_srcc, test_srcc, test_plcc,self.paras[0]['lr'],self.droplr ))
+			print('{}\t{:4.3f}\t\t{:4.4f}\t\t{:4.4f}\t\t{:4.3f}\t\t{}\t\t{:4.3f}'.format(epochnum + 1, sum(epoch_loss) / len(epoch_loss), train_srcc, test_srcc, test_plcc, self.optimizer.param_groups[0]['lr'], self.droplr ))
 
 
 			# scheduler step
