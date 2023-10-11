@@ -290,12 +290,14 @@ class  TReS(object):
 				self.scheduler.base_lrs[0] = checkpoint['base_lrs']
 				self.scheduler.eta_min = checkpoint['eta_min']
 
-			# fix updating lr bug
-
 			self.loss = checkpoint['loss']
 			self.start_epoch = checkpoint['epoch']
 			self.best_srcc = checkpoint['best_srcc']
 			self.best_plcc = checkpoint['best_plcc']
+
+			# dump after loading state
+			nirvana_dl.snapshot.dump_snapshot()
+
 		else:
 			self.start_epoch = 0
 			self.best_plcc = 0.0
@@ -353,6 +355,9 @@ class  TReS(object):
 			pred_scores = []
 			gt_scores = []
 			pbar = tqdm(self.train_data, leave=False)
+
+			# setting lr manually for restart
+			self.optimizer.param_groups[0]['lr'] = self.scheduler.get_last_lr()[0]
 
 			for g, (img, label) in enumerate(pbar):
 				img = torch.as_tensor(img.to(self.device)).requires_grad_(False)
