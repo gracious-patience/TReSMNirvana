@@ -295,8 +295,6 @@ class  TReS(object):
 			self.best_srcc = checkpoint['best_srcc']
 			self.best_plcc = checkpoint['best_plcc']
 
-			
-			copy_tree(config.svpath, config.stateSnapshot)
 			# dump after loading state
 			nirvana_dl.snapshot.dump_snapshot()
 
@@ -359,7 +357,7 @@ class  TReS(object):
 			pbar = tqdm(self.train_data, leave=False)
 
 			# setting lr manually for restart
-			self.optimizer.param_groups[0]['lr'] = self.scheduler.get_last_lr()[0]
+			self.solver.param_groups[0]['lr'] = self.scheduler.get_last_lr()[0]
 
 			for g, (img, label) in enumerate(pbar):
 				img = torch.as_tensor(img.to(self.device)).requires_grad_(False)
