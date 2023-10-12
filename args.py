@@ -67,7 +67,7 @@ def Configs():
                         help='if want to fuse before net, but not with 1x1-conv')
     parser.add_argument('--sin', dest='sin', type=int,
                         help='sin fuser + 1x1 conv')
-    parser.add_argument('--before_conv_in_sin', dest='sin', type=int, default=0,
+    parser.add_argument('--before_conv_in_sin', dest='before_conv_in_sin', type=int, default=0,
                         help='sum pics with label embeddings before 1x1 conv or not')
     parser.add_argument('--dim_feedforwardt', dest='dim_feedforwardt', type=int, default=64,
                         help='dim feedforward in the transformer')
