@@ -177,7 +177,7 @@ class Net(nn.Module):
 		self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
 
 		if self.cfg.single_channel:
-			if self.cfg.unet:
+			if self.cfg.unet or self.cfg.sin:
 				x = self.initial_fuser(x,t)
 			else:
 				x = self.initial_fuser(x)
@@ -372,7 +372,7 @@ class  TReS(object):
 				
 				self.net.zero_grad()
 
-				if self.config.unet:
+				if self.config.unet or self.config.sin:
 					pred,closs = self.net(img, label[::, 1:])
 					pred2,closs2 = self.net(torch.flip(img, [3]),label[::, 1:])
 				else:
@@ -618,7 +618,7 @@ class  TReS(object):
 			for img, label in pbartest:
 				img = torch.as_tensor(img.to(self.device))
 				label = torch.as_tensor(label.to(self.device))
-				if self.config.unet:
+				if self.config.unet or self.config.sin:
 					pred,_ = self.net(img, label[::, 1:])
 				else:
 					pred,_ = self.net(img)
