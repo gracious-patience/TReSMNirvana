@@ -68,6 +68,11 @@ class Net(nn.Module):
 					channel_mult=cfg.channel_mult,
 					middle_attention=cfg.middle_attention
 				)
+			elif cfg.sin:
+				self.initial_fuser = unet.SinFuser(
+					k = cfg.k,
+					before_initial_conv=cfg.before_conv_in_sin
+				)
 			else:
 				self.initial_fuser = nn.Conv2d(3*(cfg.k+1), 3, kernel_size=(1, 1), bias=cfg.conv_bias)
 

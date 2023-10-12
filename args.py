@@ -65,6 +65,10 @@ def Configs():
                         help='if want to fuse before net, but not with unet')
     parser.add_argument('--unet', dest='unet', type=int,
                         help='if want to fuse before net, but not with 1x1-conv')
+    parser.add_argument('--sin', dest='sin', type=int,
+                        help='sin fuser + 1x1 conv')
+    parser.add_argument('--before_conv_in_sin', dest='sin', type=int, default=0,
+                        help='sum pics with label embeddings before 1x1 conv or not')
     parser.add_argument('--dim_feedforwardt', dest='dim_feedforwardt', type=int, default=64,
                         help='dim feedforward in the transformer')
     parser.add_argument('--resnet_path', dest='resnet_path', type=str, 
@@ -79,11 +83,11 @@ def Configs():
                         help='Enable or disable bias term in 1x1 convolution')
     parser.add_argument('--attention_resolutions', dest='attention_resolutions', nargs="+", type=int, default=20,
                         help='at which downsampling add attention')
-    parser.add_argument('--scaling_factors', dest='scaling_factors', nargs="+", type=int,
+    parser.add_argument('--scaling_factors', dest='scaling_factors', nargs="+", type=int, default=[1,2,2,2],
                         help='scaling factors')
-    parser.add_argument('--channel_mult', dest='channel_mult', nargs="+", type=float,
+    parser.add_argument('--channel_mult', dest='channel_mult', nargs="+", type=float, default=[1,2,4],
                         help='channel multipliers schedule')
-    parser.add_argument('--model_channels', dest='model_channels', type=int,
+    parser.add_argument('--model_channels', dest='model_channels', type=int, default=32,
                         help='initial number of channel after first conv')
     parser.add_argument('--dump_cosine', dest='dump_cosine', type=float, default=-1,
                         help='if > 0, then make upper and lower bounds of cosine lr be multiplied by dump_cosine')
