@@ -3,7 +3,7 @@ import torchvision.models as models
 import torchvision
 import torch.nn.functional as F
 from torch import nn, Tensor
-from guided_diffusion import unet
+from fusers import unet, sin_fuser
 import nirvana_dl
 from distutils.dir_util import copy_tree
 
@@ -20,6 +20,14 @@ from typing import Optional, List
 from transformers_tres import Transformer
 import data_loader
 from posencode import PositionEmbeddingSine
+
+class LinearComb(torch.nn.Module):
+	def __init__(self, n: int, len: int):
+		super().__init__()
+		to_add = [1 for _ in range(len)]
+		self.linear = torch.nn.Parameter(torch.randn([n, *to_add]))
+	def forward(self, x):
+		return (x*self.linear).sum(dim=1)
 
 
 class L2pooling(nn.Module):
@@ -155,7 +163,24 @@ class Net(nn.Module):
 		else:
 			self.fc = nn.Linear(self.model.fc.in_features*2, 1)
 
-		
+		if cfg.late_fuse:
+			self.final_fuser = nn.Sequential(
+				nn.Linear(cfg.k + 1, 2*(cfg.k + 1)),
+				nn.SiLU(),
+				nn.Linear(2*(cfg.k + 1), 1)
+			)
+
+		if cfg.middle_fuse:
+			self.first_middle_fuser = LinearComb(cfg.k + 1, 1)
+			self.second_middle_fuser = LinearComb(cfg.k + 1, 1)
+			self.consist1_fuser = [
+				LinearComb(cfg.k + 1, 3).to(device),
+				LinearComb(cfg.k + 1, 3).to(device)
+			]
+			self.consist2_fuser = [
+				LinearComb(cfg.k + 1, 3).to(device),
+				LinearComb(cfg.k + 1, 3).to(device)
+			]
 		
 		self.ReLU = nn.ReLU()
 		self.avg7 = nn.AvgPool2d((7, 7))
@@ -163,26 +188,28 @@ class Net(nn.Module):
 		self.avg4 = nn.AvgPool2d((4, 4))
 		self.avg2 = nn.AvgPool2d((2, 2))
 		
-			   
 		
 		self.drop2d = nn.Dropout(p=0.1)
 		self.consistency = nn.L1Loss()
 		
 		
-		
-		
-
 	def forward(self, x, t=0):
 		self.pos_enc_1 = self.position_embedding(torch.ones(1, self.dim_modelt, 7, 7).to(self.device))
-		self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
+		if self.cfg.middle_fuse:
+			self.pos_enc = self.pos_enc_1.repeat(x.shape[0]* (self.cfg.k + 1),1,1,1).contiguous()
+		else:
+			self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
+		batch_size = x.shape[0]
 
 		if self.cfg.single_channel:
 			if self.cfg.unet or self.cfg.sin:
 				x = self.initial_fuser(x,t)
+			elif self.cfg.middle_fuse:
+				x = x.reshape([batch_size * (self.cfg.k + 1), 3, self.cfg.patch_size, self.cfg.patch_size])
 			else:
 				x = self.initial_fuser(x)
 
-		out,layer1,layer2,layer3,layer4 = self.model(x) 
+		_,layer1,layer2,layer3,layer4 = self.model(x) 
 
 		layer1_t = self.avg8(self.drop2d(self.L2pooling_l1(F.normalize(layer1,dim=1, p=2))))
 		layer2_t = self.avg4(self.drop2d(self.L2pooling_l2(F.normalize(layer2,dim=1, p=2))))
@@ -192,31 +219,44 @@ class Net(nn.Module):
 
 		out_t_c = self.transformer(layers,self.pos_enc)
 		out_t_o = torch.flatten(self.avg7(out_t_c),start_dim=1)
+		# TODO: fuse out_t_o before fc : [b*(k+1), d] -> [b, (k+1), d] -> [b, d]
+		if self.cfg.middle_fuse:
+			out_t_o = out_t_o.reshape([batch_size, self.cfg.k + 1, -1])
+			out_t_o = self.first_middle_fuser(out_t_o)
 		out_t_o = self.fc2(out_t_o)
+
 		layer4_o = self.avg7(layer4)
 		layer4_o = torch.flatten(layer4_o,start_dim=1)
+		# TODO: fuse layer4_o before concat with out_t_o and fc: [b*(k+1), d] -> [b, (k+1), d] -> [b, d]
+		if self.cfg.middle_fuse:
+			layer4_o = layer4_o.reshape([batch_size, self.cfg.k + 1, -1])
+			layer4_o = self.first_middle_fuser(layer4_o)
+
 		predictionQA = self.fc(torch.flatten(torch.cat((out_t_o,layer4_o),dim=1),start_dim=1))
+		if self.cfg.late_fuse:
+			labels = torch.cat([predictionQA, t], dim=1)
+			predictionQA = self.final_fuser(labels)
 		
 		# =============================================================================
 		# =============================================================================
 
 
-		fout,flayer1,flayer2,flayer3,flayer4 = self.model(torch.flip(x, [3])) 
+		_,flayer1,flayer2,flayer3,flayer4 = self.model(torch.flip(x, [3])) 
 		flayer1_t = self.avg8( self.L2pooling_l1(F.normalize(flayer1,dim=1, p=2)))
 		flayer2_t = self.avg4( self.L2pooling_l2(F.normalize(flayer2,dim=1, p=2)))
 		flayer3_t = self.avg2( self.L2pooling_l3(F.normalize(flayer3,dim=1, p=2)))
 		flayer4_t =            self.L2pooling_l4(F.normalize(flayer4,dim=1, p=2))
 		flayers = torch.cat((flayer1_t,flayer2_t,flayer3_t,flayer4_t),dim=1)
 		fout_t_c = self.transformer(flayers,self.pos_enc)
-		fout_t_o = torch.flatten(self.avg7(fout_t_c),start_dim=1)
-		fout_t_o = (self.fc2(fout_t_o))
-		flayer4_o = self.avg7(flayer4)
-		flayer4_o = torch.flatten(flayer4_o,start_dim=1)
-		fpredictionQA =  (self.fc(torch.flatten(torch.cat((fout_t_o,flayer4_o),dim=1),start_dim=1)))
-
 		
-		consistloss1 = self.consistency(out_t_c,fout_t_c.detach())
-		consistloss2 = self.consistency(layer4,flayer4.detach())
+		if self.cfg.middle_fuse:
+			out_t_c = self.consist1_fuser[0](out_t_c.reshape([batch_size, self.cfg.k + 1, *out_t_c.shape[1:]]))
+			fout_t_c = self.consist1_fuser[1](fout_t_c.reshape([batch_size, self.cfg.k + 1, *fout_t_c.shape[1:]])).detach()
+			layer4 = self.consist2_fuser[0](layer4.reshape([batch_size, self.cfg.k + 1, *layer4.shape[1:]]))
+			flayer4 = self.consist2_fuser[1](flayer4.reshape([batch_size, self.cfg.k + 1, *flayer4.shape[1:]])).detach()
+		
+		consistloss1 = self.consistency(out_t_c,fout_t_c)
+		consistloss2 = self.consistency(layer4,flayer4)
 		consistloss = 1*(consistloss1+consistloss2)
 				
 		return predictionQA, consistloss
@@ -268,7 +308,6 @@ class  TReS(object):
 
 		self.droplr = config.droplr
 		self.config = config
-		self.clsloss =  nn.CrossEntropyLoss()
 
 		
 		if config.resume:
@@ -372,7 +411,7 @@ class  TReS(object):
 				
 				self.net.zero_grad()
 
-				if self.config.unet or self.config.sin:
+				if self.config.unet or self.config.sin or self.config.late_fuse:
 					pred,closs = self.net(img, label[::, 1:])
 					pred2,closs2 = self.net(torch.flip(img, [3]),label[::, 1:])
 				else:

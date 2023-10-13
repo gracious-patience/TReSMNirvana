@@ -67,6 +67,10 @@ def Configs():
                         help='if want to fuse before net, but not with 1x1-conv')
     parser.add_argument('--sin', dest='sin', type=int,
                         help='sin fuser + 1x1 conv')
+    parser.add_argument('--middle_fuse', dest='middle_fuse', type=int,
+                        help='fuse features instead of pictures')
+    parser.add_argument('--late_fuse', dest='late_fuse', type=int, default=0,
+                        help='fuse labels in the end')
     parser.add_argument('--before_conv_in_sin', dest='before_conv_in_sin', type=int, default=0,
                         help='sum pics with label embeddings before 1x1 conv or not')
     parser.add_argument('--dim_feedforwardt', dest='dim_feedforwardt', type=int, default=64,
