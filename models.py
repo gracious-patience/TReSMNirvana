@@ -94,7 +94,8 @@ class Net(nn.Module):
 		if cfg.network =='resnet50':
 			from resnet_modify  import resnet50 as resnet_modifyresnet
 			dim_modelt = 3840
-			modelpretrain = models.resnet50(weights="DEFAULT")
+			modelpretrain = models.resnet50()
+			modelpretrain.load_state_dict(torch.load(cfg.resnet_path), strict=True)
 
 			if not cfg.single_channel:
 				if cfg.k > 0 and not cfg.finetune:
