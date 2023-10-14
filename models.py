@@ -657,7 +657,7 @@ class  TReS(object):
 			for img, label in pbartest:
 				img = torch.as_tensor(img.to(self.device))
 				label = torch.as_tensor(label.to(self.device))
-				if self.config.unet or self.config.sin:
+				if self.config.unet or self.config.sin or self.config.late_fuse:
 					pred,_ = self.net(img, label[::, 1:])
 				else:
 					pred,_ = self.net(img)

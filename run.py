@@ -9,10 +9,6 @@ import logging
 from sklearn.model_selection import train_test_split
 import nirvana_dl
 from distutils.dir_util import copy_tree
-
-
-
-
 from models import TReS, Net
 
 
