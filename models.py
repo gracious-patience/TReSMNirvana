@@ -49,7 +49,6 @@ class Net(nn.Module):
 	def __init__(self,cfg,device):
 		super(Net, self).__init__()
 		
-		
 		self.device = device
 		
 		self.cfg = cfg
@@ -57,6 +56,12 @@ class Net(nn.Module):
 		self.L2pooling_l2 = L2pooling(channels=512)
 		self.L2pooling_l3 = L2pooling(channels=1024)
 		self.L2pooling_l4 = L2pooling(channels=2048)
+
+		if cfg.middle_fuse and cfg.double_branch:
+			self.L2pooling_l1_2 = L2pooling(channels=256)
+			self.L2pooling_l2_2 = L2pooling(channels=512)
+			self.L2pooling_l3_2 = L2pooling(channels=1024)
+			self.L2pooling_l4_2 = L2pooling(channels=2048)
 		
 		if cfg.single_channel and not cfg.finetune:
 			if cfg.unet:
@@ -69,7 +74,7 @@ class Net(nn.Module):
 					num_res_blocks=1,
 					attention_resolutions= cfg.attention_resolutions,
 					scaling_factors=cfg.scaling_factors,
-					num_heads=cfg.num_heads,
+					num_heads=1,
 					resblock_updown=False,
 					conv_resample=True,
     				first_conv_resample=cfg.first_conv_resample,
@@ -77,9 +82,9 @@ class Net(nn.Module):
 					middle_attention=cfg.middle_attention
 				)
 			elif cfg.sin:
-				self.initial_fuser = unet.SinFuser(
+				self.initial_fuser = sin_fuser.SinFuser(
 					k = cfg.k,
-					before_initial_conv = cfg.before_conv_in_sin
+					before_initial_conv=cfg.before_conv_in_sin
 				)
 			else:
 				self.initial_fuser = nn.Conv2d(3*(cfg.k+1), 3, kernel_size=(1, 1), bias=cfg.conv_bias)
@@ -89,8 +94,7 @@ class Net(nn.Module):
 		if cfg.network =='resnet50':
 			from resnet_modify  import resnet50 as resnet_modifyresnet
 			dim_modelt = 3840
-			modelpretrain = models.resnet50()
-			modelpretrain.load_state_dict(torch.load(cfg.resnet_path), strict=True)
+			modelpretrain = models.resnet50(weights="DEFAULT")
 
 			if not cfg.single_channel:
 				if cfg.k > 0 and not cfg.finetune:
@@ -122,15 +126,16 @@ class Net(nn.Module):
 				self.model = resnet_modifyresnet(k=0)
 		else:
 			self.model = resnet_modifyresnet(k=0)
+			if cfg.middle_fuse and cfg.double_branch:
+				self.model_2 = resnet_modifyresnet(k=0)
 		self.model.load_state_dict(torch.load('modelpretrain'), strict=True)
+		if cfg.middle_fuse and cfg.double_branch:
+			self.model_2.load_state_dict(torch.load('modelpretrain'), strict=True)
 
 		self.dim_modelt = dim_modelt
 
 		os.remove("modelpretrain")
 		
-
-
-
 		nheadt=cfg.nheadt
 		num_encoder_layerst=cfg.num_encoder_layerst
 		dim_feedforwardt=cfg.dim_feedforwardt
@@ -143,12 +148,15 @@ class Net(nn.Module):
 									   dim_feedforward=dim_feedforwardt,
 									   normalize_before=normalize,
 									   dropout = ddropout)
-		
+		if cfg.middle_fuse and cfg.double_branch:
+			self.transformer_2 = Transformer(d_model=dim_modelt,nhead=nheadt,
+									   num_encoder_layers=num_encoder_layerst,
+									   dim_feedforward=dim_feedforwardt,
+									   normalize_before=normalize,
+									   dropout = ddropout)
 
 		self.position_embedding = PositionEmbeddingSine(dim_modelt // 2, normalize=True)
-
-
-
+		
 
 		self.fc2 = nn.Linear(dim_modelt, self.model.fc.in_features) 
 
@@ -169,7 +177,7 @@ class Net(nn.Module):
 				nn.SiLU(),
 				nn.Linear(2*(cfg.k + 1), 1)
 			)
-
+		
 		if cfg.middle_fuse:
 			self.first_middle_fuser = LinearComb(cfg.k + 1, 1)
 			self.second_middle_fuser = LinearComb(cfg.k + 1, 1)
@@ -182,52 +190,108 @@ class Net(nn.Module):
 				LinearComb(cfg.k + 1, 3).to(device)
 			]
 		
-		self.ReLU = nn.ReLU()
+
 		self.avg7 = nn.AvgPool2d((7, 7))
 		self.avg8 = nn.AvgPool2d((8, 8))
 		self.avg4 = nn.AvgPool2d((4, 4))
-		self.avg2 = nn.AvgPool2d((2, 2))
-		
+		self.avg2 = nn.AvgPool2d((2, 2))		   
 		
 		self.drop2d = nn.Dropout(p=0.1)
+
+		if cfg.middle_fuse and cfg.double_branch:
+			self.avg7_2 = nn.AvgPool2d((7, 7))
+			self.avg8_2 = nn.AvgPool2d((8, 8))
+			self.avg4_2 = nn.AvgPool2d((4, 4))
+			self.avg2_2 = nn.AvgPool2d((2, 2))		   
+			
+			self.drop2d_2 = nn.Dropout(p=0.1)
+
 		self.consistency = nn.L1Loss()
 		
-		
+
 	def forward(self, x, t=0):
 		self.pos_enc_1 = self.position_embedding(torch.ones(1, self.dim_modelt, 7, 7).to(self.device))
 		if self.cfg.middle_fuse:
-			self.pos_enc = self.pos_enc_1.repeat(x.shape[0]* (self.cfg.k + 1),1,1,1).contiguous()
+			if self.cfg.double_branch:
+				self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
+				self.pos_enc_2 = self.pos_enc_1.repeat(x.shape[0]* (self.cfg.k),1,1,1).contiguous()
+			else:
+				self.pos_enc = self.pos_enc_1.repeat(x.shape[0]* (self.cfg.k + 1),1,1,1).contiguous()
 		else:
 			self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
 		batch_size = x.shape[0]
 
+	
 		if self.cfg.single_channel:
 			if self.cfg.unet or self.cfg.sin:
 				x = self.initial_fuser(x,t)
 			elif self.cfg.middle_fuse:
-				x = x.reshape([batch_size * (self.cfg.k + 1), 3, self.cfg.patch_size, self.cfg.patch_size])
+				if self.cfg.double_branch:
+					x_1 = x[::, :3, ::, :: ]
+					x_2 = x[::, 3:, ::, :: ].reshape([batch_size * (self.cfg.k), 3, self.cfg.patch_size, self.cfg.patch_size])
+				else:
+					x = x.reshape([batch_size * (self.cfg.k + 1), 3, self.cfg.patch_size, self.cfg.patch_size])
 			else:
 				x = self.initial_fuser(x)
 
-		_,layer1,layer2,layer3,layer4 = self.model(x) 
+		# double branch handler
+		if self.cfg.double_branch:
+			# main branch
+			_,layer1,layer2,layer3,layer4_1 = self.model(x_1) 
 
-		layer1_t = self.avg8(self.drop2d(self.L2pooling_l1(F.normalize(layer1,dim=1, p=2))))
-		layer2_t = self.avg4(self.drop2d(self.L2pooling_l2(F.normalize(layer2,dim=1, p=2))))
-		layer3_t = self.avg2(self.drop2d(self.L2pooling_l3(F.normalize(layer3,dim=1, p=2))))
-		layer4_t =           self.drop2d(self.L2pooling_l4(F.normalize(layer4,dim=1, p=2)))
-		layers = torch.cat((layer1_t,layer2_t,layer3_t,layer4_t),dim=1)
+			layer1_t = self.avg8(self.drop2d(self.L2pooling_l1(F.normalize(layer1,dim=1, p=2))))
+			layer2_t = self.avg4(self.drop2d(self.L2pooling_l2(F.normalize(layer2,dim=1, p=2))))
+			layer3_t = self.avg2(self.drop2d(self.L2pooling_l3(F.normalize(layer3,dim=1, p=2))))
+			layer4_t =           self.drop2d(self.L2pooling_l4(F.normalize(layer4_1,dim=1, p=2)))
+			layers = torch.cat((layer1_t,layer2_t,layer3_t,layer4_t),dim=1)
+			out_t_c_1 = self.transformer(layers,self.pos_enc)
+			out_t_o_1 = torch.flatten(self.avg7(out_t_c_1),start_dim=1)
+			layer4_o = self.avg7(layer4_1)
+			layer4_o_1 = torch.flatten(layer4_o,start_dim=1)
 
-		out_t_c = self.transformer(layers,self.pos_enc)
-		out_t_o = torch.flatten(self.avg7(out_t_c),start_dim=1)
-		# TODO: fuse out_t_o before fc : [b*(k+1), d] -> [b, (k+1), d] -> [b, d]
+			# neighbours branch
+			_,layer1,layer2,layer3,layer4_2 = self.model_2(x_2) 
+
+			layer1_t = self.avg8_2(self.drop2d_2(self.L2pooling_l1_2(F.normalize(layer1,dim=1, p=2))))
+			layer2_t = self.avg4_2(self.drop2d_2(self.L2pooling_l2_2(F.normalize(layer2,dim=1, p=2))))
+			layer3_t = self.avg2_2(self.drop2d_2(self.L2pooling_l3_2(F.normalize(layer3,dim=1, p=2))))
+			layer4_t =           self.drop2d_2(self.L2pooling_l4_2(F.normalize(layer4_2,dim=1, p=2)))
+			layers = torch.cat((layer1_t,layer2_t,layer3_t,layer4_t),dim=1)
+			out_t_c_2 = self.transformer_2(layers,self.pos_enc_2)
+			out_t_o_2 = torch.flatten(self.avg7_2(out_t_c_2),start_dim=1)
+			layer4_o = self.avg7_2(layer4_2)
+			layer4_o_2 = torch.flatten(layer4_o,start_dim=1)
+
+			# concat branches
+			out_t_o = torch.cat([out_t_o_1, out_t_o_2], dim=0)
+			out_t_c = torch.cat([out_t_c_1, out_t_c_2], dim=0)
+			layer4_o = torch.cat([layer4_o_1, layer4_o_2], dim=0)
+			layer4 = torch.cat([layer4_1, layer4_2], dim=0)
+
+		# standard single branch
+		else:
+			_,layer1,layer2,layer3,layer4 = self.model(x) 
+
+			layer1_t = self.avg8(self.drop2d(self.L2pooling_l1(F.normalize(layer1,dim=1, p=2))))
+			layer2_t = self.avg4(self.drop2d(self.L2pooling_l2(F.normalize(layer2,dim=1, p=2))))
+			layer3_t = self.avg2(self.drop2d(self.L2pooling_l3(F.normalize(layer3,dim=1, p=2))))
+			layer4_t =           self.drop2d(self.L2pooling_l4(F.normalize(layer4,dim=1, p=2)))
+			layers = torch.cat((layer1_t,layer2_t,layer3_t,layer4_t),dim=1)
+
+
+			out_t_c = self.transformer(layers,self.pos_enc)
+			out_t_o = torch.flatten(self.avg7(out_t_c),start_dim=1)
+
+			layer4_o = self.avg7(layer4)
+			layer4_o = torch.flatten(layer4_o,start_dim=1)
+
+		# fuse out_t_o before fc : [b*(k+1), d] -> [b, (k+1), d] -> [b, d]
 		if self.cfg.middle_fuse:
 			out_t_o = out_t_o.reshape([batch_size, self.cfg.k + 1, -1])
 			out_t_o = self.first_middle_fuser(out_t_o)
 		out_t_o = self.fc2(out_t_o)
 
-		layer4_o = self.avg7(layer4)
-		layer4_o = torch.flatten(layer4_o,start_dim=1)
-		# TODO: fuse layer4_o before concat with out_t_o and fc: [b*(k+1), d] -> [b, (k+1), d] -> [b, d]
+		# fuse layer4_o before concat with out_t_o and fc: [b*(k+1), d] -> [b, (k+1), d] -> [b, d]
 		if self.cfg.middle_fuse:
 			layer4_o = layer4_o.reshape([batch_size, self.cfg.k + 1, -1])
 			layer4_o = self.first_middle_fuser(layer4_o)
@@ -236,25 +300,52 @@ class Net(nn.Module):
 		if self.cfg.late_fuse:
 			labels = torch.cat([predictionQA, t], dim=1)
 			predictionQA = self.final_fuser(labels)
-		
+
 		# =============================================================================
 		# =============================================================================
 
+		# double branch handler
+		if self.cfg.double_branch:
 
-		_,flayer1,flayer2,flayer3,flayer4 = self.model(torch.flip(x, [3])) 
-		flayer1_t = self.avg8( self.L2pooling_l1(F.normalize(flayer1,dim=1, p=2)))
-		flayer2_t = self.avg4( self.L2pooling_l2(F.normalize(flayer2,dim=1, p=2)))
-		flayer3_t = self.avg2( self.L2pooling_l3(F.normalize(flayer3,dim=1, p=2)))
-		flayer4_t =            self.L2pooling_l4(F.normalize(flayer4,dim=1, p=2))
-		flayers = torch.cat((flayer1_t,flayer2_t,flayer3_t,flayer4_t),dim=1)
-		fout_t_c = self.transformer(flayers,self.pos_enc)
+			# main branch
+			_,flayer1,flayer2,flayer3,flayer4_1 = self.model(torch.flip(x_1, [3])) 
+			flayer1_t = self.avg8( self.L2pooling_l1(F.normalize(flayer1,dim=1, p=2)))
+			flayer2_t = self.avg4( self.L2pooling_l2(F.normalize(flayer2,dim=1, p=2)))
+			flayer3_t = self.avg2( self.L2pooling_l3(F.normalize(flayer3,dim=1, p=2)))
+			flayer4_t =            self.L2pooling_l4(F.normalize(flayer4_1,dim=1, p=2))
+			flayers = torch.cat((flayer1_t,flayer2_t,flayer3_t,flayer4_t),dim=1)
+			fout_t_c_1 = self.transformer(flayers,self.pos_enc)
+
+			# neighbours' branch
+			_,flayer1,flayer2,flayer3,flayer4_2 = self.model_2(torch.flip(x_2, [3])) 
+			flayer1_t = self.avg8_2( self.L2pooling_l1_2(F.normalize(flayer1,dim=1, p=2)))
+			flayer2_t = self.avg4_2( self.L2pooling_l2_2(F.normalize(flayer2,dim=1, p=2)))
+			flayer3_t = self.avg2_2( self.L2pooling_l3_2(F.normalize(flayer3,dim=1, p=2)))
+			flayer4_t =            self.L2pooling_l4_2(F.normalize(flayer4_2,dim=1, p=2))
+			flayers = torch.cat((flayer1_t,flayer2_t,flayer3_t,flayer4_t),dim=1)
+			fout_t_c_2 = self.transformer(flayers,self.pos_enc_2)
+
+			# concat branches
+			fout_t_c = torch.cat([fout_t_c_1, fout_t_c_2], dim=0)
+			flayer4 = torch.cat([flayer4_1, flayer4_2], dim=0)
+
+
+		else:
+			_,flayer1,flayer2,flayer3,flayer4 = self.model(torch.flip(x, [3])) 
+			flayer1_t = self.avg8( self.L2pooling_l1(F.normalize(flayer1,dim=1, p=2)))
+			flayer2_t = self.avg4( self.L2pooling_l2(F.normalize(flayer2,dim=1, p=2)))
+			flayer3_t = self.avg2( self.L2pooling_l3(F.normalize(flayer3,dim=1, p=2)))
+			flayer4_t =            self.L2pooling_l4(F.normalize(flayer4,dim=1, p=2))
+			flayers = torch.cat((flayer1_t,flayer2_t,flayer3_t,flayer4_t),dim=1)
+			fout_t_c = self.transformer(flayers,self.pos_enc)
 		
+
 		if self.cfg.middle_fuse:
 			out_t_c = self.consist1_fuser[0](out_t_c.reshape([batch_size, self.cfg.k + 1, *out_t_c.shape[1:]]))
 			fout_t_c = self.consist1_fuser[1](fout_t_c.reshape([batch_size, self.cfg.k + 1, *fout_t_c.shape[1:]])).detach()
 			layer4 = self.consist2_fuser[0](layer4.reshape([batch_size, self.cfg.k + 1, *layer4.shape[1:]]))
 			flayer4 = self.consist2_fuser[1](flayer4.reshape([batch_size, self.cfg.k + 1, *flayer4.shape[1:]])).detach()
-		
+
 		consistloss1 = self.consistency(out_t_c,fout_t_c)
 		consistloss2 = self.consistency(layer4,flayer4)
 		consistloss = 1*(consistloss1+consistloss2)

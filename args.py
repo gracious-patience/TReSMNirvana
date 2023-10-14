@@ -69,6 +69,8 @@ def Configs():
                         help='sin fuser + 1x1 conv')
     parser.add_argument('--middle_fuse', dest='middle_fuse', type=int,
                         help='fuse features instead of pictures')
+    parser.add_argument('--double_branch', dest='double_branch', type=int, default=0,
+                        help='double branch setting to process neighbours independently. USE ONLY WITH middle_fuse!')
     parser.add_argument('--late_fuse', dest='late_fuse', type=int, default=0,
                         help='fuse labels in the end')
     parser.add_argument('--before_conv_in_sin', dest='before_conv_in_sin', type=int, default=0,
