@@ -21,9 +21,15 @@ from transformers_tres import Transformer
 import data_loader
 from posencode import PositionEmbeddingSine
 
+# linear combination between tensors of arbitrary shape
 class LinearComb(torch.nn.Module):
 	def __init__(self, n: int, len: int):
 		super().__init__()
+		# to multiply whole tensor by the vector of scalars
+		# you need to fill the vector with 1s according to the
+		# number of tensor's dims
+		# example: [n, d] * [n, 1] will multiply each of the n d-dimensionals vectors by one of the n-s scalars
+		# example: [n, s, h, w] * [n, 1, 1, 1]
 		to_add = [1 for _ in range(len)]
 		self.linear = torch.nn.Parameter(torch.randn([n, *to_add]))
 	def forward(self, x):
@@ -50,7 +56,6 @@ class Net(nn.Module):
 		super(Net, self).__init__()
 		
 		self.device = device
-		
 		self.cfg = cfg
 		self.L2pooling_l1 = L2pooling(channels=256)
 		self.L2pooling_l2 = L2pooling(channels=512)
@@ -66,7 +71,7 @@ class Net(nn.Module):
 		if cfg.single_channel and not cfg.finetune:
 			if cfg.unet:
 				self.initial_fuser = unet.IQAUNetModel(
-					image_size=(224, 224),
+					image_size=(cfg.patch_size, cfg.patch_size),
 					in_channels= 3*(cfg.k+1),
 					model_channels=cfg.model_channels,
 					out_channels=3,
@@ -94,12 +99,15 @@ class Net(nn.Module):
 		if cfg.network =='resnet50':
 			from resnet_modify  import resnet50 as resnet_modifyresnet
 			dim_modelt = 3840
+			# load default ResNet50 weights on Nirvana
 			modelpretrain = models.resnet50()
 			modelpretrain.load_state_dict(torch.load(cfg.resnet_path), strict=True)
 
+			# multichannel input to TReS instead of 3-channeled
 			if not cfg.single_channel:
 				if cfg.k > 0 and not cfg.finetune:
 					modelpretrain.conv1 = nn.Conv2d(3*(cfg.k+1), 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+		# Don't use this on Nirvana
 		elif cfg.network =='resnet34':
 			from resnet_modify  import resnet34 as resnet_modifyresnet
 			modelpretrain = models.resnet34(weights="DEFAULT")
@@ -172,11 +180,12 @@ class Net(nn.Module):
 		else:
 			self.fc = nn.Linear(self.model.fc.in_features*2, 1)
 
+		# 16/10/2023 version of late fuse
 		if cfg.late_fuse:
 			self.final_fuser = nn.Sequential(
-				nn.Linear(cfg.k + 1, 2*(cfg.k + 1)),
+				nn.Linear(2, 4),
 				nn.SiLU(),
-				nn.Linear(2*(cfg.k + 1), 1)
+				nn.Linear(4, 1)
 			)
 		
 		if cfg.middle_fuse:
@@ -215,9 +224,9 @@ class Net(nn.Module):
 		if self.cfg.middle_fuse:
 			if self.cfg.double_branch:
 				self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
-				self.pos_enc_2 = self.pos_enc_1.repeat(x.shape[0]* (self.cfg.k),1,1,1).contiguous()
+				self.pos_enc_2 = self.pos_enc_1.repeat(x.shape[0] * (self.cfg.k),1,1,1).contiguous()
 			else:
-				self.pos_enc = self.pos_enc_1.repeat(x.shape[0]* (self.cfg.k + 1),1,1,1).contiguous()
+				self.pos_enc = self.pos_enc_1.repeat(x.shape[0] * (self.cfg.k + 1),1,1,1).contiguous()
 		else:
 			self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
 		batch_size = x.shape[0]
@@ -225,14 +234,24 @@ class Net(nn.Module):
 	
 		if self.cfg.single_channel:
 			if self.cfg.unet or self.cfg.sin:
+				# unet and sin fusers eat [b, 3*(k+1), h, w] shaped tensors with labels
+				# and outputs [b, 3, h, w]
 				x = self.initial_fuser(x,t)
+
 			elif self.cfg.middle_fuse:
 				if self.cfg.double_branch:
-					x_1 = x[::, :3, ::, :: ]
-					x_2 = x[::, 3:, ::, :: ].reshape([batch_size * (self.cfg.k), 3, self.cfg.patch_size, self.cfg.patch_size])
+					# double branch middle fuse needs two input separate tensors:
+					# 1) with original pic 2) with k neighbours pics
+					# [b, 3*(k+1), h, w] -> [b, 3, h, w] , [b*k, 3, h, w]
+					x_1 = x[::, :3, ::, :: ] #  -> [b, 3, h, w]
+					x_2 = x[::, 3:, ::, :: ].reshape([batch_size * (self.cfg.k), 3, self.cfg.patch_size, self.cfg.patch_size]) # -> [b*k, 3, h, w]
 				else:
+					# single branch middle fuse proccess original pic and its neighbours
+					# in parallel, which is obtained using big batch
+					# [b, 3*(k+1), h, w] -> [b*(k+1), 3, h, w] 
 					x = x.reshape([batch_size * (self.cfg.k + 1), 3, self.cfg.patch_size, self.cfg.patch_size])
 			else:
+				# 1x1 conv fuser. Takes [b, 3*(k+1), h, w] with no labels, outputs [b, 3, h, w]
 				x = self.initial_fuser(x)
 
 		# double branch handler
@@ -263,7 +282,7 @@ class Net(nn.Module):
 			layer4_o = self.avg7_2(layer4_2)
 			layer4_o_2 = torch.flatten(layer4_o,start_dim=1)
 
-			# concat branches
+			# concat branches to [b*(k+1), 3, h, w] shape
 			out_t_o = torch.cat([out_t_o_1, out_t_o_2], dim=0)
 			out_t_c = torch.cat([out_t_c_1, out_t_c_2], dim=0)
 			layer4_o = torch.cat([layer4_o_1, layer4_o_2], dim=0)
@@ -286,20 +305,27 @@ class Net(nn.Module):
 			layer4_o = self.avg7(layer4)
 			layer4_o = torch.flatten(layer4_o,start_dim=1)
 
-		# fuse out_t_o before fc : [b*(k+1), d] -> [b, (k+1), d] -> [b, d]
+		# fuse out_t_o before fc : 
+		# 1) = reshape: [b*(k+1), d] -> [b, (k+1), d]
+		# 2) = weighted sum: [b, (k+1), d] -> [b, d]
 		if self.cfg.middle_fuse:
 			out_t_o = out_t_o.reshape([batch_size, self.cfg.k + 1, -1])
 			out_t_o = self.first_middle_fuser(out_t_o)
 		out_t_o = self.fc2(out_t_o)
 
-		# fuse layer4_o before concat with out_t_o and fc: [b*(k+1), d] -> [b, (k+1), d] -> [b, d]
+		# fuse layer4_o before concat with out_t_o and fc:
+		# 1) = reshape: [b*(k+1), d] -> [b, (k+1), d]
+		# 2) = weighted sum: [b, (k+1), d] -> [b, d]
 		if self.cfg.middle_fuse:
 			layer4_o = layer4_o.reshape([batch_size, self.cfg.k + 1, -1])
 			layer4_o = self.first_middle_fuser(layer4_o)
 
+		# backbone output
 		predictionQA = self.fc(torch.flatten(torch.cat((out_t_o,layer4_o),dim=1),start_dim=1))
+
+		# fuse backbone's output with neighbours' labels
 		if self.cfg.late_fuse:
-			labels = torch.cat([predictionQA, t], dim=1)
+			labels = torch.cat([predictionQA, t.mean(dim=1)], dim=1)
 			predictionQA = self.final_fuser(labels)
 
 		# =============================================================================
@@ -340,7 +366,7 @@ class Net(nn.Module):
 			flayers = torch.cat((flayer1_t,flayer2_t,flayer3_t,flayer4_t),dim=1)
 			fout_t_c = self.transformer(flayers,self.pos_enc)
 		
-
+		# weighted sum before consistency loss
 		if self.cfg.middle_fuse:
 			out_t_c = self.consist1_fuser[0](out_t_c.reshape([batch_size, self.cfg.k + 1, *out_t_c.shape[1:]]))
 			fout_t_c = self.consist1_fuser[1](fout_t_c.reshape([batch_size, self.cfg.k + 1, *fout_t_c.shape[1:]])).detach()
@@ -355,7 +381,6 @@ class Net(nn.Module):
 
 
 class  TReS(object):
-	
 	def __init__(self, config, device,  svPath, datapath, train_idx, test_idx,Net):
 		super(TReS, self).__init__()
 		
@@ -367,7 +392,10 @@ class  TReS(object):
 		self.lrratio = config.lrratio
 		self.weight_decay = config.weight_decay
 		self.net = Net(config,device).to(device) 
+		self.droplr = config.droplr
+		self.config = config
 
+		# finetune logic
 		# load checkpoint, change architecture and freeze internal params
 		if not config.single_channel:
 			if config.finetune:
@@ -398,10 +426,7 @@ class  TReS(object):
 						parameter.requires_grad = True
 				self.net.to(device)
 
-		self.droplr = config.droplr
-		self.config = config
-
-		
+		# Nirvana resume logic
 		if config.resume:
 			checkpoint = torch.load(config.stateSnapshot + '/state', map_location=device)
 			self.net.load_state_dict(checkpoint['model_state_dict'])
@@ -423,6 +448,7 @@ class  TReS(object):
 			self.solver.load_state_dict(checkpoint['optimizer_state_dict'])
 			self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 			if config.scheduler == "cosine":
+				# to handle cosine dumping
 				self.scheduler.base_lrs[0] = checkpoint['base_lrs']
 				self.scheduler.eta_min = checkpoint['eta_min']
 
@@ -451,6 +477,7 @@ class  TReS(object):
 			if config.scheduler == "cosine":
 				self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.solver, T_max=config.T_max, eta_min=config.eta_min)
 
+		# Initialize dataloaders
 		train_loader = data_loader.DataLoader(config.dataset, datapath, 
 											  train_idx, config.patch_size, 
 											  config.train_patch_num,
@@ -466,21 +493,24 @@ class  TReS(object):
 		self.test_data = test_loader.get_data()
 
 
-		
-		
 	def train(self,seed,svPath):
+		# set best metrics to handle resume
+		# set to 0 if no resume
 		best_srcc = self.best_srcc
 		best_plcc = self.best_plcc
+
 		print('Epoch\tTrain_Loss\tTrain_SRCC\tTest_SRCC\tTest_PLCC\tLearning_Rate\tdroplr')
+
+		# files for metrics logging
 		steps = 0
 		results = {}
-		train_results ={}
+		train_results = {}
 		performPath = svPath +'/' + 'val_SRCC_PLCC_'+str(self.config.vesion)+'_'+str(seed)+'.json'
 		trainPerformPath = svPath +'/' + 'train_LOSS_SRCC_'+str(self.config.vesion)+'_'+str(seed)+'.json'
 
 		if not self.config.resume:
 			with open(performPath, 'w') as json_file2:
-				json.dump(  {} , json_file2)
+				json.dump( {} , json_file2)
 			with open(trainPerformPath, 'w') as json_file3:
 				json.dump( {}, json_file3 )
 		
@@ -492,7 +522,8 @@ class  TReS(object):
 			gt_scores = []
 			pbar = tqdm(self.train_data, leave=False)
 
-			# setting lr manually for restart
+			# setting lr manually for Nirvana restart
+			# handling bug: https://github.com/Lightning-AI/lightning/issues/12812
 			self.solver.param_groups[0]['lr'] = self.scheduler.get_last_lr()[0]
 
 			for g, (img, label) in enumerate(pbar):
@@ -503,6 +534,10 @@ class  TReS(object):
 				
 				self.net.zero_grad()
 
+				# if we use fuser that processes labels
+				# labels must be transferred as the input as well
+				# ! MUST NOT USE 0-th label because it's orginal label !
+				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage ! 
 				if self.config.unet or self.config.sin or self.config.late_fuse:
 					pred,closs = self.net(img, label[::, 1:])
 					pred2,closs2 = self.net(torch.flip(img, [3]),label[::, 1:])
@@ -510,7 +545,7 @@ class  TReS(object):
 					pred,closs = self.net(img)
 					pred2,closs2 = self.net(torch.flip(img, [3]))   
 
-
+				# multi return handler
 				if self.config.multi_return:
 					pred_scores = pred_scores + pred[:,0].flatten().cpu().tolist()
 					gt_scores = gt_scores + label[:,0].flatten().cpu().tolist()
@@ -520,6 +555,7 @@ class  TReS(object):
 					# =============================================================================
 					# =============================================================================
 
+					# simple multi return 
 					if not self.config.multi_ranking:
 
 						indexlabel = torch.argsort(label, dim=0)[:, 0].flatten() # small--> large
@@ -546,16 +582,14 @@ class  TReS(object):
 						assert (label.T[0, indexlabel[-1]]-label.T[0, indexlabel[1]])>=0
 						assert (label.T[0, indexlabel[-2]]-label.T[0, indexlabel[0]])>=0
 						triplet_loss1 = nn.TripletMarginLoss(margin=(label.T[0, indexlabel[-1]]-label.T[0, indexlabel[1]]), p=1) # d_min,d'_min,d_max
-						# triplet_loss2 = nn.TripletMarginLoss(margin=label[indexlabel[0]], p=1)
 						triplet_loss2 = nn.TripletMarginLoss(margin=(label.T[0, indexlabel[-2]]-label.T[0, indexlabel[0]]), p=1)
-						# triplet_loss1 = nn.TripletMarginLoss(margin=label[indexlabel[-1]], p=1)
-						# triplet_loss2 = nn.TripletMarginLoss(margin=label[indexlabel[0]], p=1)
 						
 						tripletlosses = triplet_loss1(anchor1, positive1, negative1_1) + \
 						triplet_loss2(anchor2, positive2, negative2_1)
 						ftripletlosses = triplet_loss1(fanchor1, fpositive1, fnegative1_1) + \
 						triplet_loss2(fanchor2, fpositive2, fnegative2_1)
 
+					# multi ranking multi return
 					else:
 						tripletlosses = torch.zeros([self.config.k])
 						ftripletlosses = torch.zeros([self.config.k])
@@ -585,10 +619,7 @@ class  TReS(object):
 							assert (label.T[l, indexlabel[-1]]-label.T[l, indexlabel[1]])>=0
 							assert (label.T[l, indexlabel[-2]]-label.T[l, indexlabel[0]])>=0
 							triplet_loss1 = nn.TripletMarginLoss(margin=(label.T[l, indexlabel[-1]]-label.T[l, indexlabel[1]]), p=1) # d_min,d'_min,d_max
-							# triplet_loss2 = nn.TripletMarginLoss(margin=label[indexlabel[0]], p=1)
 							triplet_loss2 = nn.TripletMarginLoss(margin=(label.T[l, indexlabel[-2]]-label.T[l, indexlabel[0]]), p=1)
-							# triplet_loss1 = nn.TripletMarginLoss(margin=label[indexlabel[-1]], p=1)
-							# triplet_loss2 = nn.TripletMarginLoss(margin=label[indexlabel[0]], p=1)
 
 							tripletlosses[l] = triplet_loss1(anchor1, positive1, negative1_1) + \
 							triplet_loss2(anchor2, positive2, negative2_1)
@@ -597,6 +628,9 @@ class  TReS(object):
 							triplet_loss2(fanchor2, fpositive2, fnegative2_1)
 						tripletlosses = tripletlosses.mean()
 						ftripletlosses = ftripletlosses.mean()
+
+				# single return = standard approach.
+				# usually use it
 				else:
 					label = label.T[0]
 					pred_scores = pred_scores + pred.flatten().cpu().tolist()
@@ -630,10 +664,7 @@ class  TReS(object):
 					assert (label[indexlabel[-1]]-label[indexlabel[1]])>=0
 					assert (label[indexlabel[-2]]-label[indexlabel[0]])>=0
 					triplet_loss1 = nn.TripletMarginLoss(margin=(label[indexlabel[-1]]-label[indexlabel[1]]), p=1) # d_min,d'_min,d_max
-					# triplet_loss2 = nn.TripletMarginLoss(margin=label[indexlabel[0]], p=1)
 					triplet_loss2 = nn.TripletMarginLoss(margin=(label[indexlabel[-2]]-label[indexlabel[0]]), p=1)
-					# triplet_loss1 = nn.TripletMarginLoss(margin=label[indexlabel[-1]], p=1)
-					# triplet_loss2 = nn.TripletMarginLoss(margin=label[indexlabel[0]], p=1)
 
 					tripletlosses = triplet_loss1(anchor1, positive1, negative1_1) + \
 					triplet_loss2(anchor2, positive2, negative2_1)
@@ -643,15 +674,12 @@ class  TReS(object):
 				# =============================================================================
 				# =============================================================================
 
-
-
-
-				consistency = nn.L1Loss()
-
+				# print GPU usage 
 				if g == 0 and epochnum == 0:
 					print("GPU usage")
 					os.system("nvidia-smi")
 				
+				# mind blowing TReS loss
 				loss = loss_qa + closs + loss_qa2 + closs2 + 0.5*( self.l1_loss(tripletlosses,ftripletlosses.detach())+ self.l1_loss(ftripletlosses,tripletlosses.detach()))+0.05*(tripletlosses+ftripletlosses)
 				
 				epoch_loss.append(loss.item())
@@ -659,27 +687,29 @@ class  TReS(object):
 				self.solver.step()
 				
 
-			# torch.save(self.net.state_dict(), modelPath)
-
+			# calculate train metrics: Spearman's rank correlation and loss
 			train_srcc, _ = stats.spearmanr(pred_scores, gt_scores)
 			train_loss = sum(epoch_loss) / len(epoch_loss)
 
+			# log train metric
 			train_results[epochnum] = (train_loss, train_srcc)
 			with open(trainPerformPath, "a+") as file:
 				file.write(f"{epochnum+1}: {train_loss}, {train_srcc}")
 
+			# validation
 			test_srcc, test_plcc = self.test(self.test_data,epochnum,svPath,seed)
 
-
+			# log val metric
 			results[epochnum]=(test_srcc, test_plcc)
 			with open(performPath, "a+") as file:
 				file.write(f"{epochnum+1}: {test_srcc}, {test_plcc}")
 
+			# save best model's parameters according to the val's Spearman's correlation
 			if test_srcc > best_srcc:
 				modelPathbest = svPath + '/bestmodel_{}_{}'.format(str(self.config.vesion),str(seed))
-				
 				torch.save(self.net.state_dict(), modelPathbest)
 
+				# update best metrics
 				best_srcc = test_srcc
 				best_plcc = test_plcc
 
@@ -691,11 +721,15 @@ class  TReS(object):
 
 			# cosine scheduler dump
 			if self.config.scheduler == "cosine" and self.config.dump_cosine > 0:
+				# dump the lower bound of cosine annealing when reach it
 				if (epochnum+1) % self.config.T_max == 0:
 					self.scheduler.eta_min = self.scheduler.eta_min * self.config.dump_cosine
+				# dump the upper bound of cosine annealing when reach it
 				if (epochnum+1+self.config.T_max) % self.config.T_max == 0:
 					self.scheduler.base_lrs[0] = self.scheduler.base_lrs[0] * self.config.dump_cosine
 
+			# save all the resume-necessary info every epoch
+			# in case of Nirvana restart
 			fullModelPath = self.config.stateSnapshot + '/state'
 			if self.config.scheduler == "cosine":
 				torch.save({
@@ -727,28 +761,33 @@ class  TReS(object):
 			nirvana_dl.snapshot.dump_snapshot()
 
 
-		
 		print('Best val SRCC %f, PLCC %f' % (best_srcc, best_plcc))
 
 		return best_srcc, best_plcc
 
-	def test(self, data,epochnum,svPath,seed,pretrained=0):
+
+	def test(self, data, epochnum, svPath, seed, pretrained=0):
+		# to handle test session (in opposite to val session)
+		# set pretrained=1 if want test session
 		if pretrained:
 			self.net.load_state_dict(torch.load(svPath+'/bestmodel_{}_{}'.format(str(self.config.vesion),str(seed))))
+			
 		self.net.eval()
 		pred_scores = []
 		gt_scores = []
 		
 		pbartest = tqdm(data, leave=False)
-
 		with torch.no_grad():
 			steps2 = 0
 		
-			
-	
 			for img, label in pbartest:
 				img = torch.as_tensor(img.to(self.device))
 				label = torch.as_tensor(label.to(self.device))
+
+				# if we use fuser that processes labels
+				# labels must be transferred as the input as well
+				# ! MUST NOT USE 0-th label because it's orginal label !
+				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage !
 				if self.config.unet or self.config.sin or self.config.late_fuse:
 					pred,_ = self.net(img, label[::, 1:])
 				else:
@@ -764,19 +803,18 @@ class  TReS(object):
 				
 				steps2 += 1
 				
-		
-		
-			
+		# average scores over pathes
 		pred_scores = np.mean(np.reshape(np.array(pred_scores), (-1, self.test_patch_num)), axis=1)
 		gt_scores = np.mean(np.reshape(np.array(gt_scores), (-1, self.test_patch_num)), axis=1)
 		
-
+		# if val session, save to val csv
 		if not pretrained:
 			dataPath = svPath + '/val_prediction_gt_{}_{}_{}.csv'.format(str(self.config.vesion),str(seed),epochnum)
 			with open(dataPath, 'w') as f:
 				writer = csv.writer(f)
 				writer.writerow(g for g in ['preds','gts'])
 				writer.writerows(zip(pred_scores, gt_scores))
+		# if test session, save to test csv
 		else:
 			dataPath = svPath + '/test_prediction_gt_{}_{}_{}.csv'.format(str(self.config.vesion),str(seed),epochnum)
 			with open(dataPath, 'w') as f:
@@ -784,7 +822,7 @@ class  TReS(object):
 				writer.writerow(g for g in ['preds','gts'])
 				writer.writerows(zip(pred_scores, gt_scores))
 			
-			
+		# calculate test metrics: Spearman's and Pearson's correlations
 		test_srcc, _ = stats.spearmanr(pred_scores, gt_scores)
 		test_plcc, _ = stats.pearsonr(pred_scores, gt_scores)
 		return test_srcc, test_plcc

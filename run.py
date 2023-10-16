@@ -55,9 +55,7 @@ def main(config,device):
 
     print('Training and Testing on {} dataset...'.format(config.dataset))
     
-
-
-    
+    # Saving path for different settings
     SavePath = config.svpath
     if config.finetune:
         svPath =  config.dataset + '_' + str(config.vesion)+'_'+str(config.seed)+'/k_'+str(config.k)+ f'/lr_{config.lr}_lrratio{config.lrratio}' + '/'+'finetune'
@@ -94,6 +92,7 @@ def main(config,device):
         np.random.seed(config.seed)
         random.seed(config.seed)
 
+    # set total number of images according to the dataset
     total_num_images = img_num[config.dataset]
     
     
@@ -101,7 +100,7 @@ def main(config,device):
     train_index, test_index = train_test_split(total_num_images, test_size=0.2, random_state=config.seed)
     val_index, test_index = train_test_split(test_index, test_size=0.5, random_state=config.seed)
     
-    
+    # save split indices to files
     imgsTrainPath = SavePath + svPath + '/' + 'train_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
     imgsValPath = SavePath + svPath + '/' + 'val_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
     imgsTestPath = SavePath + svPath + '/' + 'test_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
@@ -113,11 +112,11 @@ def main(config,device):
     with open(imgsTestPath, 'w') as json_file2:
         json.dump( test_index, json_file2)
 
+    # initialize model and start training
     solver = TReS(config, device, SavePath + svPath, folder_path[config.dataset], train_index, val_index,Net)
     srcc_computed, plcc_computed = solver.train(config.seed, SavePath + svPath)
     
     
-       
     # logging the performance
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)

@@ -9,7 +9,6 @@ import os.path
 import scipy.io
 import numpy as np
 import csv
-from openpyxl import load_workbook
 
 def str_2_float_list(pseudolist):
     intermediate = pseudolist.strip('][').split(', ')
@@ -103,8 +102,10 @@ class LIVEChallengeFolder(data.Dataset):
 
         for _, row in df.iterrows():
             for _ in range(patch_num):
+                # [1:] slices because 0 item in train is the same as original
                 if istrain:
                     sample.append((f"{root}/Images/{row['image']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['mos']  ))
+                # no original pic in test 
                 else:
                     sample.append((f"{root}/Images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['mos']  ))
 
@@ -290,6 +291,55 @@ class Koniq_10kFolder(data.Dataset):
         length = len(self.samples)
         return length
     
+class Koniq_10kCrossFolder(data.Dataset):
+    # original = first picture is loaded from root
+    # neighbours = k others -> loaded from cross root
+    def __init__(self, root, cross_root, cross_dataset, seed, index, transform, patch_num, istrain, k, delimeter):
+        df = pd.read_csv(f"{root}/koniq_cross_{cross_dataset}_retr_aug_{seed}.csv")
+        df = df.iloc[index]
+        sample = []
+
+        for _, row in df.iterrows():
+            for _ in range(patch_num):
+                if istrain:
+                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['MOS']  ))
+                else:
+                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['MOS']  ))
+
+        self.samples = sample
+        self.transform = transform
+        self.root = root
+        self.cross_root = cross_root
+        self.delimeter = delimeter
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (sample, target) where target is class_index of the target class.
+        """
+        path, neighbours, neighbours_target, target = self.samples[index]
+        samples, targets = [], []
+        
+        # main pic
+        sample = pil_loader(path)
+        sample = self.transform(sample)
+        samples.append(sample)
+        targets += [target]
+        # pics neibours
+        for neighbour_path in neighbours:
+            sample_neighbour = pil_loader(f"{self.cross_root}{neighbour_path.split(self.delimeter)[1][:-1]}")
+            sample_neighbour = self.transform(sample_neighbour)
+            samples.append(sample_neighbour)
+        targets += neighbours_target
+        return cat(samples, dim=0), tensor(targets)
+
+    def __len__(self):
+        length = len(self.samples)
+        return length
+    
 class BigKoniq_10kFolder(data.Dataset):
 
     def __init__(self, root, index, transform, patch_num):
@@ -365,6 +415,54 @@ class SpaqFolder(data.Dataset):
         # pics neibours
         for neighbour_path in neighbours:
             sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('spaq')[1][:-1]}")
+            sample_neighbour = self.transform(sample_neighbour)
+            samples.append(sample_neighbour)
+        targets += neighbours_target
+        return cat(samples, dim=0), tensor(targets)
+
+    def __len__(self):
+        length = len(self.samples)
+        return length
+    
+class SpaqCrossFolder(data.Dataset):
+
+    def __init__(self, root: str, cross_root: str, cross_dataset: str, seed: int, index, transform, patch_num: int, istrain: bool, k: int, delimeter: str):
+        df = pd.read_csv(f"{root}/spaq_cross_{cross_dataset}_retr_aug_{seed}.csv")
+        df = df.iloc[index]
+        sample = []
+
+        for _, row in df.iterrows():
+            for _ in range(patch_num):
+                if istrain:
+                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['MOS']  ))
+                else:
+                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['MOS']  ))
+
+        self.samples = sample
+        self.transform = transform
+        self.root = root
+        self.cross_root = cross_root
+        self.delimeter = delimeter
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (sample, target) where target is class_index of the target class.
+        """
+        path, neighbours, neighbours_target, target = self.samples[index]
+        samples, targets = [], []
+        
+        # main pic
+        sample = pil_loader(path)
+        sample = self.transform(sample)
+        samples.append(sample)
+        targets += [target]
+        # pics neibours
+        for neighbour_path in neighbours:
+            sample_neighbour = pil_loader(f"{self.cross_root}{neighbour_path.split(self.delimeter)[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target

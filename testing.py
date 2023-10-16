@@ -1,5 +1,3 @@
-
-
 import os
 import argparse
 import random
@@ -10,8 +8,6 @@ from args import Configs
 import logging
 import data_loader
 from sklearn.model_selection import train_test_split
-
-
 
 from models import TReS, Net
 
@@ -59,8 +55,7 @@ def main(config,device):
 
     print('Testing on {} dataset...'.format(config.dataset))
     
-
-    
+    # Saving path for different settings
     SavePath = config.svpath
     if config.finetune:
         svPath = SavePath+ config.dataset + '_' + str(config.vesion)+'_'+str(config.seed)+'/k_'+str(config.k)+ f'/lr_{config.lr}_lrratio{config.lrratio}' + '/'+'finetune'
@@ -79,8 +74,7 @@ def main(config,device):
     os.makedirs(svPath, exist_ok=True)
         
     
-    
-     # fix the seed if needed for reproducibility
+    # fix the seed if needed for reproducibility
     if config.seed == 0:
         pass
     else:
@@ -90,9 +84,9 @@ def main(config,device):
         random.seed(config.seed)
 
 
-    
-    pretrained_path = config.svpath + config.dataset + '_' + str(config.vesion)+'_'+str(config.seed)+'/'+'sv/'
     print('path: {}'.format(svPath))
+
+    # Splits from files
     path = svPath + '/test_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
     path2 = svPath + '/train_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
 
@@ -101,19 +95,22 @@ def main(config,device):
     with open(path2) as json_file:
 	    train_index =json.load(json_file)
     
+    # Splits from method
     total_num_images = img_num[config.dataset]
     train_index, test_index = train_test_split(total_num_images, test_size=0.2, random_state=config.seed)
     val_index, test_index = train_test_split(test_index, test_size=0.5, random_state=config.seed)
 
-   
+    # Initialize test dataloader
     test_loader = data_loader.DataLoader(config.dataset, folder_path[config.dataset],
                                              test_index, config.patch_size,
                                              config.test_patch_num, batch_size=config.batch_size, k=config.k, seed=config.seed, istrain=False)
     test_data = test_loader.get_data()
 
-
-    solver = TReS(config,device, svPath, folder_path[config.dataset], train_index, test_index,Net)
+    # Initialize model
+    solver = TReS(config,device, svPath, folder_path[config.dataset], train_index, test_index, Net)
+    # Set epochnum = 1000 for logging
     version_test_save = 1000
+    # Start testing
     srcc_computed, plcc_computed = solver.test(test_data,version_test_save,svPath,config.seed,pretrained=1)
     print('srcc_computed {}, plcc_computed {}'.format(srcc_computed, plcc_computed))
 
