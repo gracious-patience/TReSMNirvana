@@ -482,12 +482,16 @@ class  TReS(object):
 											  train_idx, config.patch_size, 
 											  config.train_patch_num,
 											  seed=config.seed, k=config.k, 
-											  batch_size=config.batch_size, istrain=True)
+											  batch_size=config.batch_size, istrain=True,
+											  cross_root=config.cross_datapath, cross_dataset=config.cross_dataset,
+											  delimeter=config.delimeter)
 		
 		test_loader = data_loader.DataLoader(config.dataset, datapath,
 											 test_idx, config.patch_size,
 											 config.test_patch_num,
-											 seed=config.seed, k=config.k, istrain=False)
+											 seed=config.seed, k=config.k, istrain=False,
+											 cross_root=config.cross_datapath, cross_dataset=config.cross_dataset,
+											 delimeter=config.delimeter)
 		
 		self.train_data = train_loader.get_data()
 		self.test_data = test_loader.get_data()

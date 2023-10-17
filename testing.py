@@ -102,8 +102,10 @@ def main(config,device):
 
     # Initialize test dataloader
     test_loader = data_loader.DataLoader(config.dataset, folder_path[config.dataset],
-                                             test_index, config.patch_size,
-                                             config.test_patch_num, batch_size=config.batch_size, k=config.k, seed=config.seed, istrain=False)
+                                        test_index, config.patch_size,
+                                        config.test_patch_num, batch_size=config.batch_size, k=config.k, seed=config.seed, istrain=False,
+                                        cross_root=config.cross_datapath, cross_dataset=config.cross_dataset,
+										delimeter=config.delimeter)
     test_data = test_loader.get_data()
 
     # Initialize model

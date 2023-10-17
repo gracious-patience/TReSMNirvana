@@ -9,8 +9,15 @@ def Configs():
     parser.add_argument('--datapath', dest='datapath', type=str, 
                         default='provid the path to the dataset', 
                         help='path to dataset')
-    parser.add_argument('--dataset', dest='dataset', type=str, default='csiq',
+    parser.add_argument('--cross_datapath', dest='cross_datapath', type=str, 
+                        default='', 
+                        help='path to cross dataset')
+    parser.add_argument('--dataset', dest='dataset', type=str,
                         help='Support datasets: clive|koniq|fblive|live|csiq|tid2013')
+    parser.add_argument('--cross_dataset', dest='cross_dataset', type=str,
+                        help='Support datasets: pipal')
+    parser.add_argument('--delimeter', dest='delimeter', type=str,
+                        help='for pipal: train, spaq: spaq, koniq: koniq10k')
     parser.add_argument('--svpath', dest='svpath', type=str,
                         default='path to save the results',
                         help='the path to save the info')
