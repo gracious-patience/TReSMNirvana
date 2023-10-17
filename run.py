@@ -28,8 +28,10 @@ def main(config,device):
         'sly_kadid10k': config.datapath,
         'clive':        config.datapath,
         'koniq':        config.datapath,
+        'cross_koniq':  config.datapath,
         'fblive':       config.datapath,
         'spaq':         config.datapath,
+        'cross_spaq':   config.datapath,
         'biq':          config.datapath,
         'pipal':        config.datapath,
         'sly_pipal':    config.datapath
@@ -45,8 +47,10 @@ def main(config,device):
         'sly_tid2013':  list(range(0, 25)),
         'clive':        list(range(0, 1169)),
         'koniq':        list(range(0, 10073)),
+        'cross_koniq':  list(range(0, 10073)),
         'fblive':       list(range(0, 39810)),
         'spaq':         list(range(0, 11125)),
+        'cross_spaq':   list(range(0, 11125)),
         'biq':          list(range(0, 11989)),
         'pipal':        list(range(0, 200)),
         'sly_pipal':    list(range(0, 200))
