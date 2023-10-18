@@ -183,9 +183,9 @@ class Net(nn.Module):
 		# 16/10/2023 version of late fuse
 		if cfg.late_fuse:
 			self.final_fuser = nn.Sequential(
-				nn.Linear(2, 4),
+				nn.Linear(2, 8),
 				nn.SiLU(),
-				nn.Linear(4, 1)
+				nn.Linear(8, 1)
 			)
 		
 		if cfg.middle_fuse:
@@ -325,7 +325,7 @@ class Net(nn.Module):
 
 		# fuse backbone's output with neighbours' labels
 		if self.cfg.late_fuse:
-			labels = torch.cat([predictionQA, t.mean(dim=1)], dim=1)
+			labels = torch.cat([predictionQA, t.mean(dim=1).unsqueeze(1)], dim=1)
 			predictionQA = self.final_fuser(labels)
 
 		# =============================================================================
