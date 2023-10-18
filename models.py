@@ -196,8 +196,12 @@ class Net(nn.Module):
 			)
 		
 		if cfg.middle_fuse:
-			self.first_middle_fuser = LinearComb(cfg.k + 1, 1)
-			self.second_middle_fuser = LinearComb(cfg.k + 1, 1)
+			if cfg.attention_in_middle_fuse:
+				self.first_middle_fuser = torch.nn.MultiheadAttention(embed_dim=3840, num_heads=4, kdim=3840, vdim=3840, batch_first=True)
+				self.second_middle_fuser = torch.nn.MultiheadAttention(embed_dim=self.model.fc.in_features, num_heads=4, kdim=self.model.fc.in_features, vdim=self.model.fc.in_features, batch_first=True)
+			else:	
+				self.first_middle_fuser = LinearComb(cfg.k + 1, 1)
+				self.second_middle_fuser = LinearComb(cfg.k + 1, 1)
 			self.consist1_fuser = [
 				LinearComb(cfg.k + 1, 3).to(device),
 				LinearComb(cfg.k + 1, 3).to(device)
@@ -318,7 +322,10 @@ class Net(nn.Module):
 		# 2) = weighted sum: [b, (k+1), d] -> [b, d]
 		if self.cfg.middle_fuse:
 			out_t_o = out_t_o.reshape([batch_size, self.cfg.k + 1, -1])
-			out_t_o = self.first_middle_fuser(out_t_o)
+			if self.cfg.attention_in_middle_fuse:
+				out_t_o = self.first_middle_fuser(out_t_o[::, :1, ::], out_t_o[::, 1:, ::],  out_t_o[::, 1:, ::])
+			else:
+				out_t_o = self.first_middle_fuser(out_t_o)
 		out_t_o = self.fc2(out_t_o)
 
 		# fuse layer4_o before concat with out_t_o and fc:
@@ -326,7 +333,10 @@ class Net(nn.Module):
 		# 2) = weighted sum: [b, (k+1), d] -> [b, d]
 		if self.cfg.middle_fuse:
 			layer4_o = layer4_o.reshape([batch_size, self.cfg.k + 1, -1])
-			layer4_o = self.second_middle_fuser(layer4_o)
+			if self.cfg.attention_in_middle_fuse:
+				layer4_o = self.second_middle_fuser(layer4_o[::, :1, ::], layer4_o[::, 1:, ::], layer4_o[::, 1:, ::])
+			else:
+				layer4_o = self.second_middle_fuser(layer4_o)
 
 		# backbone output
 		predictionQA = self.fc(torch.flatten(torch.cat((out_t_o,layer4_o),dim=1),start_dim=1))
