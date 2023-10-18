@@ -187,6 +187,13 @@ class Net(nn.Module):
 				nn.SiLU(),
 				nn.Linear(8, 1)
 			)
+
+		if cfg.weight_before_late_fuse:
+			self.weighter = nn.Sequential(
+				nn.Linear(cfg.k_late, cfg.k_late*2),
+				nn.SiLU(),
+				nn.Linear(cfg.k_late*2, 1)
+			)
 		
 		if cfg.middle_fuse:
 			self.first_middle_fuser = LinearComb(cfg.k + 1, 1)
@@ -236,6 +243,7 @@ class Net(nn.Module):
 			if self.cfg.unet or self.cfg.sin:
 				# unet and sin fusers eat [b, 3*(k+1), h, w] shaped tensors with labels
 				# and outputs [b, 3, h, w]
+				# here k must be equal to k_late
 				x = self.initial_fuser(x,t)
 
 			elif self.cfg.middle_fuse:
@@ -324,8 +332,13 @@ class Net(nn.Module):
 		predictionQA = self.fc(torch.flatten(torch.cat((out_t_o,layer4_o),dim=1),start_dim=1))
 
 		# fuse backbone's output with neighbours' labels
+		if self.cfg.weight_before_late_fuse:
+			t = self.weighter(t)
+		else:
+			t = t.mean(dim=1).unsqueeze(1)
+
 		if self.cfg.late_fuse:
-			labels = torch.cat([predictionQA, t.mean(dim=1).unsqueeze(1)], dim=1)
+			labels = torch.cat([predictionQA, t], dim=1)
 			predictionQA = self.final_fuser(labels)
 
 		# =============================================================================
@@ -543,8 +556,8 @@ class  TReS(object):
 				# ! MUST NOT USE 0-th label because it's orginal label !
 				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage ! 
 				if self.config.unet or self.config.sin or self.config.late_fuse:
-					pred,closs = self.net(img, label[::, 1:])
-					pred2,closs2 = self.net(torch.flip(img, [3]),label[::, 1:])
+					pred,closs = self.net(img, label[::, 1:self.config.k_late+1])
+					pred2,closs2 = self.net(torch.flip(img, [3]), label[::, 1:self.config.k_late+1])
 				else:
 					pred,closs = self.net(img)
 					pred2,closs2 = self.net(torch.flip(img, [3]))   
@@ -793,7 +806,7 @@ class  TReS(object):
 				# ! MUST NOT USE 0-th label because it's orginal label !
 				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage !
 				if self.config.unet or self.config.sin or self.config.late_fuse:
-					pred,_ = self.net(img, label[::, 1:])
+					pred,_ = self.net(img, label[::, 1:self.config.k_late + 1])
 				else:
 					pred,_ = self.net(img)
 

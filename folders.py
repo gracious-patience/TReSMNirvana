@@ -104,10 +104,10 @@ class LIVEChallengeFolder(data.Dataset):
             for _ in range(patch_num):
                 # [1:] slices because 0 item in train is the same as original
                 if istrain:
-                    sample.append((f"{root}/Images/{row['image']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['mos']  ))
+                    sample.append((f"{root}/Images/{row['image']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:] , row['mos']  ))
                 # no original pic in test 
                 else:
-                    sample.append((f"{root}/Images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['mos']  ))
+                    sample.append((f"{root}/Images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['mos']  ))
 
         self.samples = sample
         self.transform = transform
@@ -155,10 +155,10 @@ class CSIQFolder(data.Dataset):
             for _ in range(patch_num):
                 # [1:] slices because 0 item in train is the same as original
                 if istrain:
-                    sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[1:k+1] , str_2_float_list(row['neighbours_labels'])[1:k+1], row['dmos'] ))
+                    sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[1:k+1] , str_2_float_list(row['neighbours_labels'])[1:], row['dmos'] ))
                 # no original pic in test 
                 else:
-                    sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k], row['dmos'] ))
+                    sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:], row['dmos'] ))
         self.samples = sample
         self.transform = transform
         self.root = root
@@ -207,10 +207,10 @@ class SlyCSIQFolder(data.Dataset):
             for _ in range(patch_num):
                 # [1:] slices because 0 item in train is the same as original
                 if istrain:
-                    sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k], row['dmos'] ))
+                    sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:], row['dmos'] ))
                 # no original pic in test 
                 else:
-                    sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k], row['dmos'] ))
+                    sample.append((f"{root}/dst_imgs_all/{row['image']}.{row['dst_type']}.{row['dst_lev']}.png" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:], row['dmos'] ))
         self.samples = sample
         self.transform = transform
         self.root = root
@@ -255,9 +255,9 @@ class Koniq_10kFolder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['MOS']  ))
+                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:] , row['MOS']  ))
                 else:
-                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['MOS']  ))
+                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
 
         self.samples = sample
         self.transform = transform
@@ -302,9 +302,9 @@ class Koniq_10kCrossFolder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['MOS']  ))
+                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:] , row['MOS']  ))
                 else:
-                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['MOS']  ))
+                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
 
         self.samples = sample
         self.transform = transform
@@ -388,9 +388,9 @@ class SpaqFolder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['MOS']  ))
+                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:] , row['MOS']  ))
                 else:
-                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['MOS']  ))
+                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
 
         self.samples = sample
         self.transform = transform
@@ -434,9 +434,9 @@ class SpaqCrossFolder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['MOS']  ))
+                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:] , row['MOS']  ))
                 else:
-                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['MOS']  ))
+                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
 
         self.samples = sample
         self.transform = transform
@@ -482,9 +482,9 @@ class BiqFolder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/Images/{row['Image Name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['MOS']  ))
+                    sample.append((f"{root}/Images/{row['Image Name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:] , row['MOS']  ))
                 else:
-                    sample.append((f"{root}/Images/{row['Image Name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['MOS']  ))
+                    sample.append((f"{root}/Images/{row['Image Name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
 
         self.samples = sample
         self.transform = transform
@@ -571,9 +571,9 @@ class TID2013Folder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:k+1] , row['mos']  ))
+                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:] , row['mos']  ))
                 else:
-                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['mos']  ))
+                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['mos']  ))
         self.samples = sample
         self.transform = transform
         self.root = root
@@ -611,9 +611,9 @@ class SlyTID2013Folder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['mos']  ))
+                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['mos']  ))
                 else:
-                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:k] , row['mos']  ))
+                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['mos']  ))
         self.samples = sample
         self.transform = transform
         self.root = root
@@ -651,9 +651,9 @@ class Kadid10k(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[1:k+1] , str_2_float_list(row['neighbours_labels'])[1:k+1] , row['dmos'] ))
+                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[1:k+1] , str_2_float_list(row['neighbours_labels'])[1:] , row['dmos'] ))
                 else:
-                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k] , row['dmos'] ))
+                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:] , row['dmos'] ))
         self.samples = sample
         self.transform = transform
         self.root = root
@@ -699,9 +699,9 @@ class SlyKadid10k(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k] , row['dmos'] ))
+                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:] , row['dmos'] ))
                 else:
-                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k] , row['dmos'] ))
+                    sample.append((f"{root}/distorted_images/{row['image']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:] , row['dmos'] ))
         self.samples = sample
         self.transform = transform
         self.root = root
@@ -747,9 +747,9 @@ class PipalFolder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/Train_Dist/{row['dist_name']}" , str_2_str_list(row['neighbours'])[1:k+1] , str_2_float_list(row['neighbours_labels'])[1:k+1], row['elo_score'] ))
+                    sample.append((f"{root}/Train_Dist/{row['dist_name']}" , str_2_str_list(row['neighbours'])[1:k+1] , str_2_float_list(row['neighbours_labels'])[1:], row['elo_score'] ))
                 else:
-                    sample.append((f"{root}/Train_Dist/{row['dist_name']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k], row['elo_score'] ))
+                    sample.append((f"{root}/Train_Dist/{row['dist_name']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:], row['elo_score'] ))
 
         self.samples = sample
         self.transform = transform
@@ -795,9 +795,9 @@ class SlyPipalFolder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/Train_Dist/{row['dist_name']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k], row['elo_score'] ))
+                    sample.append((f"{root}/Train_Dist/{row['dist_name']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:], row['elo_score'] ))
                 else:
-                    sample.append((f"{root}/Train_Dist/{row['dist_name']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:k], row['elo_score'] ))
+                    sample.append((f"{root}/Train_Dist/{row['dist_name']}" , str_2_str_list(row['neighbours'])[:k] , str_2_float_list(row['neighbours_labels'])[:], row['elo_score'] ))
 
         self.samples = sample
         self.transform = transform

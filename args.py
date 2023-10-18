@@ -53,6 +53,8 @@ def Configs():
                         help='num encoder layers in the transformer')
     parser.add_argument('--k', dest='k', type=int, default=3,
                         help='num of neighbours to augment network')
+    parser.add_argument('--k_late', dest='k_late', type=int, default=3,
+                        help='num of neighbours labels to augment network')
     parser.add_argument('--multi_return', dest='multi_return', type=int,
                         help='return k+1 labels or 1')
     parser.add_argument('--resume', dest='resume', type=int, default=0,
@@ -78,6 +80,8 @@ def Configs():
                         help='fuse features instead of pictures')
     parser.add_argument('--double_branch', dest='double_branch', type=int, default=0,
                         help='double branch setting to process neighbours independently. USE ONLY WITH middle_fuse!')
+    parser.add_argument('--weight_before_late_fuse', dest='weight_before_late_fuse', type=int, default=0,
+                        help='weighted average of labels before late fuse')
     parser.add_argument('--late_fuse', dest='late_fuse', type=int, default=0,
                         help='fuse labels in the end')
     parser.add_argument('--before_conv_in_sin', dest='before_conv_in_sin', type=int, default=0,
