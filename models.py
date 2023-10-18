@@ -326,18 +326,18 @@ class Net(nn.Module):
 		# 2) = weighted sum: [b, (k+1), d] -> [b, d]
 		if self.cfg.middle_fuse:
 			layer4_o = layer4_o.reshape([batch_size, self.cfg.k + 1, -1])
-			layer4_o = self.first_middle_fuser(layer4_o)
+			layer4_o = self.second_middle_fuser(layer4_o)
 
 		# backbone output
 		predictionQA = self.fc(torch.flatten(torch.cat((out_t_o,layer4_o),dim=1),start_dim=1))
 
 		# fuse backbone's output with neighbours' labels
-		if self.cfg.weight_before_late_fuse:
-			t = self.weighter(t)
-		else:
-			t = t.mean(dim=1).unsqueeze(1)
-
+		
 		if self.cfg.late_fuse:
+			if self.cfg.weight_before_late_fuse:
+				t = self.weighter(t)
+			else:
+				t = t.mean(dim=1).unsqueeze(1)
 			labels = torch.cat([predictionQA, t], dim=1)
 			predictionQA = self.final_fuser(labels)
 
