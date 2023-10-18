@@ -167,7 +167,18 @@ class Net(nn.Module):
 		self.position_embedding = PositionEmbeddingSine(dim_modelt // 2, normalize=True)
 		
 
-		self.fc2 = nn.Linear(dim_modelt, self.model.fc.in_features) 
+		if cfg.dataset == 'spaq':
+			if cfg.metainfo_aggregation == 'cat':
+				self.preprocess_meta_info = nn.Sequential(
+					nn.Linear(20, 40),
+					nn.SiLU(),
+					nn.Linear(40, 20)
+				)
+
+		if cfg.dataset == 'spaq' and cfg.metainfo_aggregation == 'cat':
+			self.fc2 = nn.Linear(dim_modelt+20, self.model.fc.in_features+20)
+		else:
+			self.fc2 = nn.Linear(dim_modelt, self.model.fc.in_features) 
 
 		if not cfg.single_channel:
 			if not cfg.finetune:
@@ -178,7 +189,10 @@ class Net(nn.Module):
 			else:
 				self.fc = nn.Linear(self.model.fc.in_features*2, 1)
 		else:
-			self.fc = nn.Linear(self.model.fc.in_features*2, 1)
+			if cfg.dataset == 'spaq' and cfg.metainfo_aggregation == 'cat':
+				self.fc = nn.Linear((self.model.fc.in_features+20)*2, 1)
+			else:
+				self.fc = nn.Linear(self.model.fc.in_features*2, 1)
 
 		# 16/10/2023 version of late fuse
 		if cfg.late_fuse:
@@ -230,7 +244,7 @@ class Net(nn.Module):
 		self.consistency = nn.L1Loss()
 		
 
-	def forward(self, x, t=0):
+	def forward(self, x, t=0, info=[]):
 		self.pos_enc_1 = self.position_embedding(torch.ones(1, self.dim_modelt, 7, 7).to(self.device))
 		if self.cfg.middle_fuse:
 			if self.cfg.double_branch:
@@ -242,6 +256,13 @@ class Net(nn.Module):
 			self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
 		batch_size = x.shape[0]
 
+		# work with spaq's metainfo
+		if self.cfg.dataset == 'spaq':
+			preprocessed_meta_info = self.preprocess_meta_info(
+				info.reshape([batch_size * self.cfg.k, -1])
+			).reshape([batch_size, self.cfg.k, -1])
+			# pad with zeroes
+			preprocessed_meta_info = torch.cat([torch.zeros([batch_size, 1 ,preprocessed_meta_info.shape[-1]], device=self.device), preprocessed_meta_info], dim=1)
 	
 		if self.cfg.single_channel:
 			if self.cfg.unet or self.cfg.sin:
@@ -323,8 +344,13 @@ class Net(nn.Module):
 		if self.cfg.middle_fuse:
 			out_t_o = out_t_o.reshape([batch_size, self.cfg.k + 1, -1])
 			if self.cfg.attention_in_middle_fuse:
-				out_t_o = self.first_middle_fuser(out_t_o[::, :1, ::], out_t_o[::, 1:, ::],  out_t_o[::, 1:, ::])
+				out_t_o = self.first_middle_fuser(out_t_o[::, :1, ::], out_t_o[::, 1:, ::],  out_t_o[::, 1:, ::])[0]
 			else:
+				if self.cfg.dataset == 'spaq':
+					if self.cfg.metainfo_aggregation == 'sum':
+						out_t_o += preprocessed_meta_info
+					elif self.cfg.metainfo_aggregation == 'cat':
+						out_t_o = torch.cat([out_t_o, preprocessed_meta_info], dim=-1)
 				out_t_o = self.first_middle_fuser(out_t_o)
 		out_t_o = self.fc2(out_t_o)
 
@@ -334,8 +360,13 @@ class Net(nn.Module):
 		if self.cfg.middle_fuse:
 			layer4_o = layer4_o.reshape([batch_size, self.cfg.k + 1, -1])
 			if self.cfg.attention_in_middle_fuse:
-				layer4_o = self.second_middle_fuser(layer4_o[::, :1, ::], layer4_o[::, 1:, ::], layer4_o[::, 1:, ::])
+				layer4_o = self.second_middle_fuser(layer4_o[::, :1, ::], layer4_o[::, 1:, ::],  layer4_o[::, 1:, ::])[0]
 			else:
+				if self.cfg.dataset == 'spaq':
+					if self.cfg.metainfo_aggregation == 'sum':
+						layer4_o += preprocessed_meta_info
+					elif self.cfg.metainfo_aggregation == 'cat':
+						layer4_o = torch.cat([layer4_o, preprocessed_meta_info], dim=-1)
 				layer4_o = self.second_middle_fuser(layer4_o)
 
 		# backbone output
@@ -552,10 +583,12 @@ class  TReS(object):
 			# setting lr manually for Nirvana restart
 			# handling bug: https://github.com/Lightning-AI/lightning/issues/12812
 			self.solver.param_groups[0]['lr'] = self.scheduler.get_last_lr()[0]
+ 
 
-			for g, (img, label) in enumerate(pbar):
+			for g, (img, label, info) in enumerate(pbar):
 				img = torch.as_tensor(img.to(self.device)).requires_grad_(False)
 				label = torch.as_tensor(label.to(self.device)).requires_grad_(False)
+				info = torch.as_tensor(info.to(self.device)).requires_grad_(False)
 
 				steps+=1
 				
@@ -566,11 +599,19 @@ class  TReS(object):
 				# ! MUST NOT USE 0-th label because it's orginal label !
 				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage ! 
 				if self.config.unet or self.config.sin or self.config.late_fuse:
-					pred,closs = self.net(img, label[::, 1:self.config.k_late+1])
-					pred2,closs2 = self.net(torch.flip(img, [3]), label[::, 1:self.config.k_late+1])
+					if self.config.dataset == 'spaq':
+						pred,closs = self.net(img, label[::, 1:self.config.k_late+1], info)
+						pred2,closs2 = self.net(torch.flip(img, [3]), label[::, 1:self.config.k_late+1], info)
+					else:
+						pred,closs = self.net(img, label[::, 1:self.config.k_late+1])
+						pred2,closs2 = self.net(torch.flip(img, [3]), label[::, 1:self.config.k_late+1])
 				else:
-					pred,closs = self.net(img)
-					pred2,closs2 = self.net(torch.flip(img, [3]))   
+					if self.config.dataset == 'spaq':
+						pred,closs = self.net(img, info=info)
+						pred2,closs2 = self.net(torch.flip(img, [3]), info=info) 
+					else:
+						pred,closs = self.net(img)
+						pred2,closs2 = self.net(torch.flip(img, [3]))   
 
 				# multi return handler
 				if self.config.multi_return:
@@ -807,18 +848,26 @@ class  TReS(object):
 		with torch.no_grad():
 			steps2 = 0
 		
-			for img, label in pbartest:
+			for img, label, info in pbartest:
 				img = torch.as_tensor(img.to(self.device))
 				label = torch.as_tensor(label.to(self.device))
+				info = torch.as_tensor(info.to(self.device))
+
 
 				# if we use fuser that processes labels
 				# labels must be transferred as the input as well
 				# ! MUST NOT USE 0-th label because it's orginal label !
 				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage !
 				if self.config.unet or self.config.sin or self.config.late_fuse:
-					pred,_ = self.net(img, label[::, 1:self.config.k_late + 1])
+					if self.config.dataset == 'spaq':
+						pred,_ = self.net(img, label[::, 1:self.config.k_late + 1], info)
+					else:
+						pred,_ = self.net(img, label[::, 1:self.config.k_late + 1])
 				else:
-					pred,_ = self.net(img)
+					if self.config.dataset == 'spaq':
+						pred,_ = self.net(img, info=info)
+					else:
+						pred,_ = self.net(img)
 
 				if self.config.multi_return:
 					pred_scores = pred_scores + pred[:,0].flatten().cpu().tolist()
