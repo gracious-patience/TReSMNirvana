@@ -317,6 +317,7 @@ class Koniq_10kFolder(data.Dataset):
 class Koniq_10kCrossFolder(data.Dataset):
     # original = first picture is loaded from root
     # neighbours = k others -> loaded from cross root
+    # use spaq's metainfo if cross dataset is spaq
     def __init__(self, root, cross_root, cross_dataset, seed, index, transform, patch_num, istrain, k, delimeter):
         df = pd.read_csv(f"{root}/koniq_cross_{cross_dataset}_retr_aug_{seed}.csv")
         df = df.iloc[index]
@@ -333,7 +334,10 @@ class Koniq_10kCrossFolder(data.Dataset):
         self.transform = transform
         self.root = root
         self.cross_root = cross_root
+        self.cross_dataset = cross_dataset
         self.delimeter = delimeter
+        if cross_dataset == 'spaq':
+            self.df = pd.read_csv(f"{cross_root}/spaq_info.csv")
 
     def __getitem__(self, index):
         """
@@ -356,6 +360,15 @@ class Koniq_10kCrossFolder(data.Dataset):
             sample_neighbour = pil_loader(f"{self.cross_root}{neighbour_path.split(self.delimeter)[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
+            if self.cross_dataset == 'spaq':
+                # metainfo
+                neighbour_name = neighbour_path.split('/')[-1][:-1]
+                neighbour_stats = self.df.loc[self.df['Image name'] == neighbour_name]
+                metas.append(
+                    [
+                        list(neighbour_stats[header])[0] for header in spaq_meta_headers
+                    ]
+                )
         targets += neighbours_target
         return cat(samples, dim=0), tensor(targets), tensor(metas)
 
