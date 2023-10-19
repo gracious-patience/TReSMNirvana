@@ -175,10 +175,17 @@ class Net(nn.Module):
 					nn.Linear(40, 20)
 				)
 
-		if (cfg.dataset == 'spaq' or  cfg.cross_dataset == 'spaq') and cfg.metainfo_aggregation == 'cat':
+		if cfg.use_metainfo and cfg.dataset == 'spaq' and cfg.metainfo_aggregation == 'cat':
 			self.fc2 = nn.Linear(dim_modelt+20, self.model.fc.in_features+20)
+		elif cfg.middle_label_fuse:
+			if cfg.middle_label_aggregation == 'cat':
+				self.fc2 = nn.Linear(dim_modelt+cfg.middle_label_aggregation_dim, self.model.fc.in_features+cfg.middle_label_aggregation_dim)
+			elif cfg.middle_label_aggregation == 'sum':
+				self.fc2 = nn.Linear(dim_modelt, self.model.fc.in_features)
+			else:
+				self.fc2 = nn.Linear(dim_modelt+1, self.model.fc.in_features+1)
 		else:
-			self.fc2 = nn.Linear(dim_modelt, self.model.fc.in_features) 
+			self.fc2 = nn.Linear(dim_modelt, self.model.fc.in_features)  
 
 		if not cfg.single_channel:
 			if not cfg.finetune:
@@ -189,8 +196,15 @@ class Net(nn.Module):
 			else:
 				self.fc = nn.Linear(self.model.fc.in_features*2, 1)
 		else:
-			if (cfg.dataset == 'spaq' or  cfg.cross_dataset == 'spaq') and cfg.metainfo_aggregation == 'cat':
+			if cfg.use_metainfo and cfg.dataset == 'spaq' and cfg.metainfo_aggregation == 'cat':
 				self.fc = nn.Linear((self.model.fc.in_features+20)*2, 1)
+			elif cfg.middle_label_fuse:
+				if cfg.middle_label_aggregation == 'cat':
+					self.fc = nn.Linear((self.model.fc.in_features + cfg.middle_label_aggregation_dim)*2, 1)
+				elif cfg.middle_label_aggregation == 'sum':
+					self.fc = nn.Linear(self.model.fc.in_features*2, 1)
+				else:
+					self.fc = nn.Linear((self.model.fc.in_features+1)*2, 1)
 			else:
 				self.fc = nn.Linear(self.model.fc.in_features*2, 1)
 
@@ -201,6 +215,25 @@ class Net(nn.Module):
 				nn.SiLU(),
 				nn.Linear(8, 1)
 			)
+
+		if cfg.middle_label_fuse:
+			if cfg.middle_label_aggregation == 'cat':
+				self.middle_label_embedder = nn.Sequential(
+					nn.Linear(1, cfg.middle_label_aggregation_dim//2),
+					nn.SiLU(),
+					nn.Linear(cfg.middle_label_aggregation_dim//2, cfg.middle_label_aggregation_dim)
+				)
+			elif cfg.middle_label_aggregation == 'sum':
+				self.first_middle_label_embedder = nn.Sequential(
+					nn.Linear(1, 10),
+					nn.SiLU(),
+					nn.Linear(10, dim_modelt)
+				)
+				self.second_middle_label_embedder = nn.Sequential(
+					nn.Linear(1, 10),
+					nn.SiLU(),
+					nn.Linear(10, self.model.fc.in_features)
+				)
 
 		if cfg.weight_before_late_fuse:
 			self.weighter = nn.Sequential(
@@ -263,6 +296,36 @@ class Net(nn.Module):
 			).reshape([batch_size, self.cfg.k, -1])
 			# pad with zeroes
 			preprocessed_meta_info = torch.cat([torch.zeros([batch_size, 1 ,preprocessed_meta_info.shape[-1]], device=self.device), preprocessed_meta_info], dim=1)
+
+		# preproccess spaq's metainfo
+		if (self.cfg.dataset == 'spaq' or self.cfg.cross_dataset == 'spaq') and self.cfg.use_metainfo:
+			preprocessed_meta_info = self.preprocess_meta_info(
+				info.reshape([batch_size * self.cfg.k, -1])
+			).reshape([batch_size, self.cfg.k, -1])
+			# pad with zeroes
+			preprocessed_meta_info = torch.cat([torch.zeros([batch_size, 1 ,preprocessed_meta_info.shape[-1]], device=self.device), preprocessed_meta_info], dim=1)
+
+		# preproccess labels if middle label fuse:
+		if self.cfg.middle_label_fuse:
+			# if we concat mlp-ed labels
+			if self.cfg.middle_label_aggregation == 'cat':
+				preprocessed_labels = self.middle_label_embedder(
+					t[:, :self.cfg.k].reshape([batch_size * self.cfg.k, 1])
+				).reshape([batch_size, self.cfg.k, self.cfg.middle_label_aggregation_dim])
+				preprocessed_labels = torch.cat([torch.zeros([batch_size, 1 ,preprocessed_labels.shape[-1]], device=self.device), preprocessed_labels], dim=1)
+			# if we sum mlp-ed labels
+			elif self.cfg.middle_label_aggregation == 'sum':
+				preprocessed_labels_1 = self.first_middle_label_embedder(
+					t[:, :self.cfg.k].reshape([batch_size * self.cfg.k, 1])
+				).reshape([batch_size, self.cfg.k, self.dim_modelt])
+				preprocessed_labels_2 = self.second_middle_label_embedder(
+					t[:, :self.cfg.k].reshape([batch_size * self.cfg.k, 1])
+				).reshape([batch_size, self.cfg.k, self.model.fc.in_features])
+				preprocessed_labels_1 = torch.cat([torch.zeros([batch_size, 1 ,preprocessed_labels_1.shape[-1]], device=self.device), preprocessed_labels_1], dim=1)
+				preprocessed_labels_2 = torch.cat([torch.zeros([batch_size, 1 ,preprocessed_labels_2.shape[-1]], device=self.device), preprocessed_labels_2], dim=1)
+			# if we concat labels
+			else:
+				preprocessed_labels = torch.cat([-1*torch.ones([batch_size, 1, 1 ], device=self.device), t[:, :self.cfg.k].unsqueeze(-1)], dim=1)
 	
 		if self.cfg.single_channel:
 			if self.cfg.unet or self.cfg.sin:
@@ -338,6 +401,7 @@ class Net(nn.Module):
 			layer4_o = self.avg7(layer4)
 			layer4_o = torch.flatten(layer4_o,start_dim=1)
 
+		# first middle fuse
 		# fuse out_t_o before fc : 
 		# 1) = reshape: [b*(k+1), d] -> [b, (k+1), d]
 		# 2) = weighted sum: [b, (k+1), d] -> [b, d]
@@ -346,14 +410,25 @@ class Net(nn.Module):
 			if self.cfg.attention_in_middle_fuse:
 				out_t_o = self.first_middle_fuser(out_t_o[::, :1, ::], out_t_o[::, 1:, ::],  out_t_o[::, 1:, ::])[0]
 			else:
-				if self.cfg.dataset == 'spaq' or  self.cfg.cross_dataset == 'spaq':
+				# spaq's metainfo fuse
+				if self.cfg.dataset == 'spaq':
 					if self.cfg.metainfo_aggregation == 'sum':
 						out_t_o += preprocessed_meta_info
 					elif self.cfg.metainfo_aggregation == 'cat':
 						out_t_o = torch.cat([out_t_o, preprocessed_meta_info], dim=-1)
+			
+				# middle label fuse
+				if self.cfg.middle_label_fuse:
+					if self.cfg.middle_label_aggregation == 'cat':
+						out_t_o = torch.cat([out_t_o, preprocessed_labels], dim=-1)
+					elif self.cfg.middle_label_aggregation == 'sum':
+						out_t_o += preprocessed_labels_1
+					else:
+						out_t_o = torch.cat([out_t_o, preprocessed_labels], dim=-1)
 				out_t_o = self.first_middle_fuser(out_t_o)
 		out_t_o = self.fc2(out_t_o)
 
+		# second middle fuse
 		# fuse layer4_o before concat with out_t_o and fc:
 		# 1) = reshape: [b*(k+1), d] -> [b, (k+1), d]
 		# 2) = weighted sum: [b, (k+1), d] -> [b, d]
@@ -362,18 +437,26 @@ class Net(nn.Module):
 			if self.cfg.attention_in_middle_fuse:
 				layer4_o = self.second_middle_fuser(layer4_o[::, :1, ::], layer4_o[::, 1:, ::],  layer4_o[::, 1:, ::])[0]
 			else:
-				if self.cfg.dataset == 'spaq' or  self.cfg.cross_dataset == 'spaq':
+				if self.cfg.dataset == 'spaq':
 					if self.cfg.metainfo_aggregation == 'sum':
 						layer4_o += preprocessed_meta_info
 					elif self.cfg.metainfo_aggregation == 'cat':
 						layer4_o = torch.cat([layer4_o, preprocessed_meta_info], dim=-1)
+
+				# middle label fuse
+				if self.cfg.middle_label_fuse:
+					if self.cfg.middle_label_aggregation == 'cat':
+						layer4_o = torch.cat([layer4_o, preprocessed_labels], dim=-1)
+					elif self.cfg.middle_label_aggregation == 'sum':
+						layer4_o += preprocessed_labels_2
+					else:
+						layer4_o = torch.cat([layer4_o, preprocessed_labels], dim=-1)
 				layer4_o = self.second_middle_fuser(layer4_o)
 
 		# backbone output
 		predictionQA = self.fc(torch.flatten(torch.cat((out_t_o,layer4_o),dim=1),start_dim=1))
 
 		# fuse backbone's output with neighbours' labels
-		
 		if self.cfg.late_fuse:
 			if self.cfg.weight_before_late_fuse:
 				t = self.weighter(t)
@@ -598,20 +681,8 @@ class  TReS(object):
 				# labels must be transferred as the input as well
 				# ! MUST NOT USE 0-th label because it's orginal label !
 				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage ! 
-				if self.config.unet or self.config.sin or self.config.late_fuse:
-					if self.config.dataset == 'spaq' or self.config.cross_dataset == 'spaq':
-						pred,closs = self.net(img, label[::, 1:self.config.k_late+1], info)
-						pred2,closs2 = self.net(torch.flip(img, [3]), label[::, 1:self.config.k_late+1], info)
-					else:
-						pred,closs = self.net(img, label[::, 1:self.config.k_late+1])
-						pred2,closs2 = self.net(torch.flip(img, [3]), label[::, 1:self.config.k_late+1])
-				else:
-					if self.config.dataset == 'spaq' or self.config.cross_dataset == 'spaq':
-						pred,closs = self.net(img, info=info)
-						pred2,closs2 = self.net(torch.flip(img, [3]), info=info) 
-					else:
-						pred,closs = self.net(img)
-						pred2,closs2 = self.net(torch.flip(img, [3]))   
+				pred,closs = self.net(img, label[::, 1:self.config.k_late+1], info)
+				pred2,closs2 = self.net(torch.flip(img, [3]), label[::, 1:self.config.k_late+1], info)  
 
 				# multi return handler
 				if self.config.multi_return:
@@ -858,16 +929,7 @@ class  TReS(object):
 				# labels must be transferred as the input as well
 				# ! MUST NOT USE 0-th label because it's orginal label !
 				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage !
-				if self.config.unet or self.config.sin or self.config.late_fuse:
-					if self.config.dataset == 'spaq' or self.config.cross_dataset == 'spaq':
-						pred,_ = self.net(img, label[::, 1:self.config.k_late + 1], info)
-					else:
-						pred,_ = self.net(img, label[::, 1:self.config.k_late + 1])
-				else:
-					if self.config.dataset == 'spaq' or self.config.cross_dataset == 'spaq':
-						pred,_ = self.net(img, info=info)
-					else:
-						pred,_ = self.net(img)
+				pred,_ = self.net(img, label[::, 1:self.config.k_late + 1], info)
 
 				if self.config.multi_return:
 					pred_scores = pred_scores + pred[:,0].flatten().cpu().tolist()

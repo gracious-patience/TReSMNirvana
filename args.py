@@ -78,6 +78,12 @@ def Configs():
                         help='sin fuser + 1x1 conv')
     parser.add_argument('--middle_fuse', dest='middle_fuse', type=int,
                         help='fuse features instead of pictures')
+    parser.add_argument('--middle_label_aggregation', dest='middle_label_aggregation', type=str, default="no",
+                        help='type of label preproccessing')
+    parser.add_argument('--middle_label_fuse', dest='middle_label_fuse', type=int,
+                        help='fuse labels with image features')
+    parser.add_argument('--middle_label_aggregation_dim', dest='middle_label_aggregation_dim', type=int, default=128,
+                        help='dim for middle label aggregation if cat')
     parser.add_argument('--attention_in_middle_fuse', dest='attention_in_middle_fuse', type=int, default=0,
                         help='middle fuse using cross attention')
     parser.add_argument('--use_metainfo', dest='use_metainfo', type=int, default=0,
