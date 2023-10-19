@@ -80,6 +80,8 @@ def Configs():
                         help='fuse features instead of pictures')
     parser.add_argument('--attention_in_middle_fuse', dest='attention_in_middle_fuse', type=int, default=0,
                         help='middle fuse using cross attention')
+    parser.add_argument('--use_metainfo', dest='use_metainfo', type=int, default=0,
+                        help='use spaq metainfo')
     parser.add_argument('--metainfo_aggregation', dest='metainfo_aggregation', type=str, default="",
                         help='if (cross)dataset == spaq, use metainfo')
     parser.add_argument('--double_branch', dest='double_branch', type=int, default=0,

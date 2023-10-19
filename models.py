@@ -167,7 +167,7 @@ class Net(nn.Module):
 		self.position_embedding = PositionEmbeddingSine(dim_modelt // 2, normalize=True)
 		
 
-		if cfg.dataset == 'spaq' or cfg.cross_dataset == 'spaq':
+		if (cfg.dataset == 'spaq' or cfg.cross_dataset == 'spaq') and cfg.use_metainfo:
 			if cfg.metainfo_aggregation == 'cat':
 				self.preprocess_meta_info = nn.Sequential(
 					nn.Linear(20, 40),
@@ -257,7 +257,7 @@ class Net(nn.Module):
 		batch_size = x.shape[0]
 
 		# work with spaq's metainfo
-		if self.cfg.dataset == 'spaq' or  self.cfg.cross_dataset == 'spaq':
+		if (self.cfg.dataset == 'spaq' or  self.cfg.cross_dataset == 'spaq') and self.cfg.use_metainfo:
 			preprocessed_meta_info = self.preprocess_meta_info(
 				info.reshape([batch_size * self.cfg.k, -1])
 			).reshape([batch_size, self.cfg.k, -1])
