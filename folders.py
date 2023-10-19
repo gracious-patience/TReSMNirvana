@@ -17,6 +17,29 @@ def str_2_str_list(pseudolist):
     intermediate = pseudolist.strip('][').split(', ')
     return list(map(str, intermediate))
 
+spaq_meta_headers = [
+    "Brightness_x",
+    "Colorfulness",
+    "Contrast",
+    "Noisiness",
+    "Sharpness",
+    "Focal length",
+    "F-number",
+    "Exposure time",
+    "ISO",
+    "Brightness_y",
+    "Flash",
+    "Animal",
+    "Cityscape",
+    "Human",
+    "Indoor scene",
+    "Landscape",
+    "Night scene",
+    "Plant",
+    "Still-life",
+    "Others"
+]
+
 
 class LIVEFolder(data.Dataset):
 
@@ -122,7 +145,7 @@ class LIVEChallengeFolder(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -135,7 +158,7 @@ class LIVEChallengeFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -172,7 +195,7 @@ class CSIQFolder(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -188,7 +211,7 @@ class CSIQFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -224,7 +247,7 @@ class SlyCSIQFolder(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -239,7 +262,7 @@ class SlyCSIQFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -272,7 +295,7 @@ class Koniq_10kFolder(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -285,7 +308,7 @@ class Koniq_10kFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -321,7 +344,7 @@ class Koniq_10kCrossFolder(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -334,7 +357,7 @@ class Koniq_10kCrossFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -395,6 +418,7 @@ class SpaqFolder(data.Dataset):
         self.samples = sample
         self.transform = transform
         self.root = root
+        self.df = pd.read_csv(f"{root}/spaq_info.csv")
 
     def __getitem__(self, index):
         """
@@ -404,8 +428,9 @@ class SpaqFolder(data.Dataset):
         Returns:
             tuple: (sample, target) where target is class_index of the target class.
         """
+        
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [], []
         
         # main pic
         sample = pil_loader(path)
@@ -414,11 +439,20 @@ class SpaqFolder(data.Dataset):
         targets += [target]
         # pics neibours
         for neighbour_path in neighbours:
+            # pics
             sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('spaq')[1][:-1]}")
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
+            # metainfo
+            neighbour_name = neighbour_path.split('/')[-1][:-1]
+            neighbour_stats = self.df.loc[self.df['Image name'] == neighbour_name]
+            metas.append(
+                [
+                    list(neighbour_stats[header])[0] for header in spaq_meta_headers
+                ]
+            )
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -453,7 +487,7 @@ class SpaqCrossFolder(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [], []
         
         # main pic
         sample = pil_loader(path)
@@ -466,7 +500,7 @@ class SpaqCrossFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -499,7 +533,7 @@ class BiqFolder(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -512,7 +546,7 @@ class BiqFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -580,7 +614,7 @@ class TID2013Folder(data.Dataset):
 
     def __getitem__(self, index):
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -593,7 +627,7 @@ class TID2013Folder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -620,7 +654,7 @@ class SlyTID2013Folder(data.Dataset):
 
     def __getitem__(self, index):
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -633,7 +667,7 @@ class SlyTID2013Folder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -668,7 +702,7 @@ class Kadid10k(data.Dataset):
         """
         path, neighbours, neighbours_target, target = self.samples[index]
 
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -681,7 +715,7 @@ class Kadid10k(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -716,7 +750,7 @@ class SlyKadid10k(data.Dataset):
         """
         path, neighbours, neighbours_target, target = self.samples[index]
 
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -729,7 +763,7 @@ class SlyKadid10k(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -764,7 +798,7 @@ class PipalFolder(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -777,7 +811,7 @@ class PipalFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
@@ -812,7 +846,7 @@ class SlyPipalFolder(data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         path, neighbours, neighbours_target, target = self.samples[index]
-        samples, targets = [], []
+        samples, targets, metas = [], [],[]
         
         # main pic
         sample = pil_loader(path)
@@ -825,7 +859,7 @@ class SlyPipalFolder(data.Dataset):
             sample_neighbour = self.transform(sample_neighbour)
             samples.append(sample_neighbour)
         targets += neighbours_target
-        return cat(samples, dim=0), tensor(targets)
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
 
     def __len__(self):
         length = len(self.samples)
