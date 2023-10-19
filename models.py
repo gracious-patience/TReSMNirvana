@@ -167,7 +167,7 @@ class Net(nn.Module):
 		self.position_embedding = PositionEmbeddingSine(dim_modelt // 2, normalize=True)
 		
 
-		if cfg.dataset == 'spaq':
+		if cfg.dataset == 'spaq' or cfg.cross_dataset == 'spaq':
 			if cfg.metainfo_aggregation == 'cat':
 				self.preprocess_meta_info = nn.Sequential(
 					nn.Linear(20, 40),
@@ -175,7 +175,7 @@ class Net(nn.Module):
 					nn.Linear(40, 20)
 				)
 
-		if cfg.dataset == 'spaq' and cfg.metainfo_aggregation == 'cat':
+		if (cfg.dataset == 'spaq' or  cfg.cross_dataset == 'spaq') and cfg.metainfo_aggregation == 'cat':
 			self.fc2 = nn.Linear(dim_modelt+20, self.model.fc.in_features+20)
 		else:
 			self.fc2 = nn.Linear(dim_modelt, self.model.fc.in_features) 
@@ -189,7 +189,7 @@ class Net(nn.Module):
 			else:
 				self.fc = nn.Linear(self.model.fc.in_features*2, 1)
 		else:
-			if cfg.dataset == 'spaq' and cfg.metainfo_aggregation == 'cat':
+			if (cfg.dataset == 'spaq' or  cfg.cross_dataset == 'spaq') and cfg.metainfo_aggregation == 'cat':
 				self.fc = nn.Linear((self.model.fc.in_features+20)*2, 1)
 			else:
 				self.fc = nn.Linear(self.model.fc.in_features*2, 1)
@@ -257,7 +257,7 @@ class Net(nn.Module):
 		batch_size = x.shape[0]
 
 		# work with spaq's metainfo
-		if self.cfg.dataset == 'spaq':
+		if self.cfg.dataset == 'spaq' or  self.cfg.cross_dataset == 'spaq':
 			preprocessed_meta_info = self.preprocess_meta_info(
 				info.reshape([batch_size * self.cfg.k, -1])
 			).reshape([batch_size, self.cfg.k, -1])
@@ -346,7 +346,7 @@ class Net(nn.Module):
 			if self.cfg.attention_in_middle_fuse:
 				out_t_o = self.first_middle_fuser(out_t_o[::, :1, ::], out_t_o[::, 1:, ::],  out_t_o[::, 1:, ::])[0]
 			else:
-				if self.cfg.dataset == 'spaq':
+				if self.cfg.dataset == 'spaq' or  self.cfg.cross_dataset == 'spaq':
 					if self.cfg.metainfo_aggregation == 'sum':
 						out_t_o += preprocessed_meta_info
 					elif self.cfg.metainfo_aggregation == 'cat':
@@ -362,7 +362,7 @@ class Net(nn.Module):
 			if self.cfg.attention_in_middle_fuse:
 				layer4_o = self.second_middle_fuser(layer4_o[::, :1, ::], layer4_o[::, 1:, ::],  layer4_o[::, 1:, ::])[0]
 			else:
-				if self.cfg.dataset == 'spaq':
+				if self.cfg.dataset == 'spaq' or  self.cfg.cross_dataset == 'spaq':
 					if self.cfg.metainfo_aggregation == 'sum':
 						layer4_o += preprocessed_meta_info
 					elif self.cfg.metainfo_aggregation == 'cat':
@@ -599,14 +599,14 @@ class  TReS(object):
 				# ! MUST NOT USE 0-th label because it's orginal label !
 				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage ! 
 				if self.config.unet or self.config.sin or self.config.late_fuse:
-					if self.config.dataset == 'spaq':
+					if self.config.dataset == 'spaq' or self.config.cross_dataset == 'spaq':
 						pred,closs = self.net(img, label[::, 1:self.config.k_late+1], info)
 						pred2,closs2 = self.net(torch.flip(img, [3]), label[::, 1:self.config.k_late+1], info)
 					else:
 						pred,closs = self.net(img, label[::, 1:self.config.k_late+1])
 						pred2,closs2 = self.net(torch.flip(img, [3]), label[::, 1:self.config.k_late+1])
 				else:
-					if self.config.dataset == 'spaq':
+					if self.config.dataset == 'spaq' or self.config.cross_dataset == 'spaq':
 						pred,closs = self.net(img, info=info)
 						pred2,closs2 = self.net(torch.flip(img, [3]), info=info) 
 					else:
@@ -859,12 +859,12 @@ class  TReS(object):
 				# ! MUST NOT USE 0-th label because it's orginal label !
 				# ! DON'T CONFUSE WITH NOT TAKING 0-th label at the preprocess stage !
 				if self.config.unet or self.config.sin or self.config.late_fuse:
-					if self.config.dataset == 'spaq':
+					if self.config.dataset == 'spaq' or self.config.cross_dataset == 'spaq':
 						pred,_ = self.net(img, label[::, 1:self.config.k_late + 1], info)
 					else:
 						pred,_ = self.net(img, label[::, 1:self.config.k_late + 1])
 				else:
-					if self.config.dataset == 'spaq':
+					if self.config.dataset == 'spaq' or self.config.cross_dataset == 'spaq':
 						pred,_ = self.net(img, info=info)
 					else:
 						pred,_ = self.net(img)
