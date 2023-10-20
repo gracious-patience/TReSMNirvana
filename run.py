@@ -100,8 +100,9 @@ def main(config,device):
     total_num_images = img_num[config.dataset]
     
     
-    # Train - Validation - Test split
+    # Train - Retrieve - Validation - Test split
     train_index, test_index = train_test_split(total_num_images, test_size=0.2, random_state=config.seed)
+    train_index, _ = train_test_split(train_index, test_size=config.retrieve_size, random_state=config.seed)
     val_index, test_index = train_test_split(test_index, test_size=0.5, random_state=config.seed)
     
     # save split indices to files

@@ -91,7 +91,7 @@ class Net(nn.Module):
 					k = cfg.k,
 					before_initial_conv=cfg.before_conv_in_sin
 				)
-			else:
+			elif cfg.conv1x1:
 				self.initial_fuser = nn.Conv2d(3*(cfg.k+1), 3, kernel_size=(1, 1), bias=cfg.conv_bias)
 
 
@@ -334,6 +334,10 @@ class Net(nn.Module):
 				# here k must be equal to k_late
 				x = self.initial_fuser(x,t)
 
+			elif self.cfg.conv1x1:
+				# 1x1 conv fuser. Takes [b, 3*(k+1), h, w] with no labels, outputs [b, 3, h, w]
+				x = self.initial_fuser(x)
+
 			elif self.cfg.middle_fuse:
 				if self.cfg.double_branch:
 					# double branch middle fuse needs two input separate tensors:
@@ -346,9 +350,12 @@ class Net(nn.Module):
 					# in parallel, which is obtained using big batch
 					# [b, 3*(k+1), h, w] -> [b*(k+1), 3, h, w] 
 					x = x.reshape([batch_size * (self.cfg.k + 1), 3, self.cfg.patch_size, self.cfg.patch_size])
+
+			# vanilla TReS
+			# take only original pic
 			else:
-				# 1x1 conv fuser. Takes [b, 3*(k+1), h, w] with no labels, outputs [b, 3, h, w]
-				x = self.initial_fuser(x)
+				x = x[::, :3, ::, :: ]
+			
 
 		# double branch handler
 		if self.cfg.double_branch:

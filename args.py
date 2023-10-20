@@ -1,5 +1,3 @@
-
-
 import argparse
 import torch
 
@@ -25,6 +23,8 @@ def Configs():
                         help='Number of sample patches from training image')
     parser.add_argument('--test_patch_num', dest='test_patch_num', type=int, default=50, 
                         help='Number of sample patches from testing image')
+    parser.add_argument('--retrieve_size', dest='retrieve_size', type=float, default=1e-10, 
+                        help='Ratio of retrievial subset of train, if not using whole train subset for training')
     parser.add_argument('--lr', dest='lr', type=float, default=2e-5, 
                         help='Learning rate')
     parser.add_argument('--lrratio', dest='lrratio', type=float, default=1, 
@@ -76,6 +76,8 @@ def Configs():
                         help='if want to fuse before net, but not with 1x1-conv')
     parser.add_argument('--sin', dest='sin', type=int,
                         help='sin fuser + 1x1 conv')
+    parser.add_argument('--conv1x1', dest='conv1x1', type=int,
+                        help='1x1 conv fuser')
     parser.add_argument('--middle_fuse', dest='middle_fuse', type=int,
                         help='fuse features instead of pictures')
     parser.add_argument('--middle_label_aggregation', dest='middle_label_aggregation', type=str, default="no",
