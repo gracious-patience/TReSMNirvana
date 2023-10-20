@@ -29,6 +29,7 @@ def main(config,device):
         'clive':        config.datapath,
         'koniq':        config.datapath,
         'cross_koniq':  config.datapath,
+        'partial_koniq':config.datapath,
         'fblive':       config.datapath,
         'spaq':         config.datapath,
         'cross_spaq':   config.datapath,
@@ -48,6 +49,7 @@ def main(config,device):
         'clive':        list(range(0, 1169)),
         'koniq':        list(range(0, 10073)),
         'cross_koniq':  list(range(0, 10073)),
+        'partial_koniq':list(range(0, 10073)),
         'fblive':       list(range(0, 39810)),
         'spaq':         list(range(0, 11125)),
         'cross_spaq':   list(range(0, 11125)),
@@ -95,7 +97,7 @@ def main(config,device):
     path2 = svPath + '/train_index_'+str(config.vesion)+'_'+str(config.seed)+'.json'
 
     with open(path) as json_file:
-	    test_index = json.load(json_file)
+        test_index = json.load(json_file)
     with open(path2) as json_file:
 	    train_index =json.load(json_file)
     
@@ -109,7 +111,7 @@ def main(config,device):
                                         test_index, config.patch_size,
                                         config.test_patch_num, batch_size=config.batch_size, k=config.k, seed=config.seed, istrain=False,
                                         cross_root=config.cross_datapath, cross_dataset=config.cross_dataset,
-										delimeter=config.delimeter)
+										delimeter=config.delimeter, retrieve_size=config.retrieve_size)
     test_data = test_loader.get_data()
 
     # Initialize model

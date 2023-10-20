@@ -9,7 +9,7 @@ class DataLoader(object):
 	Dataset class for IQA databases
 	"""
 
-	def __init__(self, dataset: str, path: str, img_indx, patch_size: int, patch_num: int, seed: int, k: int, batch_size=1, istrain=True, cross_root="", cross_dataset="", delimeter=""):
+	def __init__(self, dataset: str, path: str, img_indx, patch_size: int, patch_num: int, seed: int, k: int, batch_size=1, istrain=True, cross_root="", cross_dataset="", delimeter="", retrieve_size=0):
 
 		self.batch_size = batch_size
 		self.istrain = istrain
@@ -31,7 +31,7 @@ class DataLoader(object):
 					torchvision.transforms.Normalize(mean=(0.485, 0.456, 0.406),
 													 std=(0.229, 0.224, 0.225))
 				])
-		elif dataset == 'koniq' or dataset == 'big_koniq' or dataset == 'cross_koniq':
+		elif dataset == 'koniq' or dataset == 'big_koniq' or dataset == 'cross_koniq' or dataset == 'partial_koniq':
 			if istrain:
 				transforms = torchvision.transforms.Compose([
 					torchvision.transforms.RandomHorizontalFlip(),
@@ -46,7 +46,7 @@ class DataLoader(object):
 					torchvision.transforms.ToTensor(),
 					torchvision.transforms.Normalize(mean=(0.485, 0.456, 0.406),
 													 std=(0.229, 0.224, 0.225))])
-		elif dataset == 'spaq' or dataset == 'cross_spaq':
+		elif dataset == 'spaq' or dataset == 'cross_spaq' or dataset == 'partial_spaq':
 			if istrain:
 				transforms = torchvision.transforms.Compose([
 					torchvision.transforms.RandomHorizontalFlip(),
@@ -113,6 +113,9 @@ class DataLoader(object):
 		elif dataset == 'cross_koniq':
 			self.data = folders.Koniq_10kCrossFolder(
 				root=path, cross_root=cross_root, cross_dataset=cross_dataset, seed=seed, index=img_indx, transform=transforms, patch_num=patch_num, istrain=istrain, k=k, delimeter=delimeter)
+		elif dataset == 'partial_koniq':
+			self.data = folders.Koniq_10kPartialFolder(
+				root=path, seed=seed, index=img_indx, transform=transforms, patch_num=patch_num, istrain=istrain, k=k, retrieve_size=retrieve_size)
 		elif dataset == 'big_koniq':
 			self.data = folders.BigKoniq_10kFolder(
 				root=path, seed=seed, index=img_indx, transform=transforms, patch_num=patch_num)

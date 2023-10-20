@@ -289,14 +289,6 @@ class Net(nn.Module):
 			self.pos_enc = self.pos_enc_1.repeat(x.shape[0],1,1,1).contiguous()
 		batch_size = x.shape[0]
 
-		# work with spaq's metainfo
-		if (self.cfg.dataset == 'spaq' or  self.cfg.cross_dataset == 'spaq') and self.cfg.use_metainfo:
-			preprocessed_meta_info = self.preprocess_meta_info(
-				info.reshape([batch_size * self.cfg.k, -1])
-			).reshape([batch_size, self.cfg.k, -1])
-			# pad with zeroes
-			preprocessed_meta_info = torch.cat([torch.zeros([batch_size, 1 ,preprocessed_meta_info.shape[-1]], device=self.device), preprocessed_meta_info], dim=1)
-
 		# preproccess spaq's metainfo
 		if (self.cfg.dataset == 'spaq' or self.cfg.cross_dataset == 'spaq') and self.cfg.use_metainfo:
 			preprocessed_meta_info = self.preprocess_meta_info(
@@ -628,14 +620,14 @@ class  TReS(object):
 											  seed=config.seed, k=config.k, 
 											  batch_size=config.batch_size, istrain=True,
 											  cross_root=config.cross_datapath, cross_dataset=config.cross_dataset,
-											  delimeter=config.delimeter)
+											  delimeter=config.delimeter, retrieve_size=config.retrieve_size)
 		
 		test_loader = data_loader.DataLoader(config.dataset, datapath,
 											 test_idx, config.patch_size,
 											 config.test_patch_num,
 											 seed=config.seed, k=config.k, istrain=False,
 											 cross_root=config.cross_datapath, cross_dataset=config.cross_dataset,
-											 delimeter=config.delimeter)
+											 delimeter=config.delimeter, retrieve_size=config.retrieve_size)
 		
 		self.train_data = train_loader.get_data()
 		self.test_data = test_loader.get_data()

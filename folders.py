@@ -314,10 +314,55 @@ class Koniq_10kFolder(data.Dataset):
         length = len(self.samples)
         return length
     
+class Koniq_10kPartialFolder(data.Dataset):
+
+    def __init__(self, root, seed, index, transform, patch_num, istrain, k, retrieve_size):
+        df = pd.read_csv(f"{root}/koniq_{retrieve_size}_retr_aug_{seed}.csv")
+        df = df.iloc[index]
+        sample = []
+
+        for _, row in df.iterrows():
+            for _ in range(patch_num):
+                if istrain:
+                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
+                else:
+                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
+
+        self.samples = sample
+        self.transform = transform
+        self.root = root
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (sample, target) where target is class_index of the target class.
+        """
+        path, neighbours, neighbours_target, target = self.samples[index]
+        samples, targets, metas = [], [],[]
+        
+        # main pic
+        sample = pil_loader(path)
+        sample = self.transform(sample)
+        samples.append(sample)
+        targets += [target]
+        # pics neibours
+        for neighbour_path in neighbours:
+            sample_neighbour = pil_loader(f"{self.root}{neighbour_path.split('koniq10k')[1][:-1]}")
+            sample_neighbour = self.transform(sample_neighbour)
+            samples.append(sample_neighbour)
+        targets += neighbours_target
+        return cat(samples, dim=0), tensor(targets), tensor(metas)
+
+    def __len__(self):
+        length = len(self.samples)
+        return length
+
 class Koniq_10kCrossFolder(data.Dataset):
     # original = first picture is loaded from root
     # neighbours = k others -> loaded from cross root
-    # use spaq's metainfo if cross dataset is spaq
     def __init__(self, root, cross_root, cross_dataset, seed, index, transform, patch_num, istrain, k, delimeter):
         df = pd.read_csv(f"{root}/koniq_cross_{cross_dataset}_retr_aug_{seed}.csv")
         df = df.iloc[index]
@@ -326,7 +371,7 @@ class Koniq_10kCrossFolder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:] , row['MOS']  ))
+                    sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
                 else:
                     sample.append((f"{root}/512x384/{row['image_name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
 
@@ -481,7 +526,7 @@ class SpaqCrossFolder(data.Dataset):
         for _, row in df.iterrows():
             for _ in range(patch_num):
                 if istrain:
-                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[1:k+1] ,str_2_float_list(row['neighbours_labels'])[1:] , row['MOS']  ))
+                    sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
                 else:
                     sample.append((f"{root}/TestImage/{row['Image name']}" , str_2_str_list(row['neighbours'])[:k] ,str_2_float_list(row['neighbours_labels'])[:] , row['MOS']  ))
 
